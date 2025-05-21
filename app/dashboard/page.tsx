@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -10,11 +10,22 @@ import { ArrowLeft, ArrowRight, Clock, FileText, Lock, Settings, Shield, Smartph
 import { sections, getQuestionsBySection } from "@/lib/data"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { ProgressWithMilestones } from "@/components/progress-with-milestones"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function Dashboard() {
   const { toast } = useToast()
   const [progress, setProgress] = useLocalStorage<Record<string, number>>("cyberEssentialsProgress", {})
   const [lastMilestoneReached, setLastMilestoneReached] = useLocalStorage<number>("lastMilestoneReached", 0)
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false)
 
   useEffect(() => {
     // Initialize progress for each section if not already set
@@ -183,7 +194,11 @@ export default function Dashboard() {
     }
   }, [calculateOverallProgress(), lastMilestoneReached, setLastMilestoneReached, toast])
 
-  const resetProgress = () => {
+  const handleResetClick = () => {
+    setShowResetConfirmation(true)
+  }
+
+  const confirmReset = () => {
     const initialProgress: Record<string, number> = {}
     sections.forEach((section) => {
       initialProgress[section.id] = 0
@@ -196,6 +211,8 @@ export default function Dashboard() {
       title: "Progress Reset",
       description: "Your progress has been reset to 0%",
     })
+
+    setShowResetConfirmation(false)
   }
 
   const getIcon = (iconName: string) => {
@@ -230,7 +247,7 @@ export default function Dashboard() {
           </Link>
           <h1 className="text-3xl font-bold">Cyber Essentials Preparation</h1>
         </div>
-        <Button variant="outline" onClick={resetProgress}>
+        <Button variant="outline" onClick={handleResetClick}>
           Reset Progress
         </Button>
       </div>
@@ -322,6 +339,22 @@ export default function Dashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Custom Reset Confirmation Dialog */}
+      <AlertDialog open={showResetConfirmation} onOpenChange={setShowResetConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to reset your progress? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmReset}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
