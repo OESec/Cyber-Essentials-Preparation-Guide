@@ -3,18 +3,21 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Copy, X, Info, KeyRound, ArrowRight, Clock, RefreshCw } from "lucide-react"
+import { Copy, X, Info, KeyRound, ArrowRight, Clock, RefreshCw, Mail, Shield, CheckCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-// Define the recovery token type with expiration
+// Define the recovery token type with expiration and email
 interface RecoveryTokenData {
   token: string
   expiresAt: number // Unix timestamp in milliseconds
+  email?: string // Associated email for verification
 }
 
 // Generate a UUID v4 token
@@ -27,8 +30,16 @@ function generateUUID() {
   })
 }
 
+// Generate a 6-digit verification code
+function generateVerificationCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
+
 // Default expiration period - 30 days in milliseconds
 const DEFAULT_EXPIRATION_PERIOD = 30 * 24 * 60 * 60 * 1000
+
+// Verification code expiration - 10 minutes in milliseconds
+const VERIFICATION_CODE_EXPIRATION = 10 * 60 * 1000
 
 export function RecoveryCodeModal() {
   const { toast } = useToast()
@@ -38,11 +49,19 @@ export function RecoveryCodeModal() {
     null,
   )
   const [inputToken, setInputToken] = useState("")
+  const [inputEmail, setInputEmail] = useState("")
+  const [verificationCode, setVerificationCode] = useState("")
+  const [inputVerificationCode, setInputVerificationCode] = useState("")
+  const [verificationCodeExpiry, setVerificationCodeExpiry] = useState<number | null>(null)
   const [isValidating, setIsValidating] = useState(false)
+  const [isSendingCode, setIsSendingCode] = useState(false)
   const [validationError, setValidationError] = useState("")
   const [activeTab, setActiveTab] = useState("view")
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
   const [expirationPercentage, setExpirationPercentage] = useState(100)
+  const [recoveryStep, setRecoveryStep] = useState<"code" | "email" | "verify" | "success">("code")
+  const [emailVerified, setEmailVerified] = useState(false)
+  const [userEmail, setUserEmail] = useLocalStorage<string | null>("cyberEssentialsUserEmail", null)
 
   // Check if this is a fresh user (no progress data)
   const [isFreshUser, setIsFreshUser] = useState(true)
@@ -54,6 +73,11 @@ export function RecoveryCodeModal() {
     } else {
       // Calculate time remaining
       updateTimeRemaining()
+
+      // If we have an email stored with the token, use it
+      if (recoveryTokenData.email && !userEmail) {
+        setUserEmail(recoveryTokenData.email)
+      }
     }
 
     // Check if user has any existing progress
@@ -72,7 +96,7 @@ export function RecoveryCodeModal() {
     // Set up interval to update time remaining
     const interval = setInterval(updateTimeRemaining, 60000) // Update every minute
     return () => clearInterval(interval)
-  }, [recoveryTokenData, isOpen, isFreshUser])
+  }, [recoveryTokenData, isOpen, isFreshUser, userEmail])
 
   // Function to generate a new token with expiration
   const generateNewToken = () => {
@@ -82,6 +106,7 @@ export function RecoveryCodeModal() {
     setRecoveryTokenData({
       token: newToken,
       expiresAt: expiresAt,
+      email: userEmail || undefined,
     })
 
     updateTimeRemaining()
@@ -150,48 +175,149 @@ export function RecoveryCodeModal() {
     }
   }
 
-  const handleRestoreProgress = () => {
-    setIsValidating(true)
-    setValidationError("")
-
+  // Function to validate the recovery code format
+  const validateRecoveryCode = () => {
     // Simple validation - check if it's a valid UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(inputToken)) {
       setValidationError("Invalid recovery code format. Please check and try again.")
+      return false
+    }
+    return true
+  }
+
+  // Function to validate email format
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
+  }
+
+  // Function to handle the first step of recovery - validating the recovery code
+  const handleValidateRecoveryCode = () => {
+    setIsValidating(true)
+    setValidationError("")
+
+    if (!validateRecoveryCode()) {
       setIsValidating(false)
       return
     }
 
     // Simulate a short delay for validation
     setTimeout(() => {
-      try {
-        // Check if the entered token matches any known token
-        // In a real implementation, this would validate against a server
+      setIsValidating(false)
+      setRecoveryStep("email")
+    }, 1000)
+  }
 
-        // For now, we'll just create a new token data with the entered token
-        const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
-        setRecoveryTokenData({
-          token: inputToken,
-          expiresAt: expiresAt,
-        })
+  // Function to send verification code to email
+  const handleSendVerificationCode = () => {
+    if (!validateEmail(inputEmail)) {
+      setValidationError("Please enter a valid email address.")
+      return
+    }
 
+    setIsSendingCode(true)
+    setValidationError("")
+
+    // Generate a verification code
+    const code = generateVerificationCode()
+    setVerificationCode(code)
+    setVerificationCodeExpiry(Date.now() + VERIFICATION_CODE_EXPIRATION)
+
+    // Simulate sending an email
+    setTimeout(() => {
+      setIsSendingCode(false)
+      setRecoveryStep("verify")
+
+      // In a real application, this would send an actual email
+      // For demo purposes, we'll show the code in a toast
+      toast({
+        title: "Verification Code Sent",
+        description: `Your verification code is: ${code}`,
+        duration: 10000,
+      })
+    }, 1500)
+  }
+
+  // Function to verify the code
+  const handleVerifyCode = () => {
+    setIsValidating(true)
+    setValidationError("")
+
+    // Check if code has expired
+    if (verificationCodeExpiry && Date.now() > verificationCodeExpiry) {
+      setValidationError("Verification code has expired. Please request a new code.")
+      setIsValidating(false)
+      return
+    }
+
+    // Check if code matches
+    if (inputVerificationCode !== verificationCode) {
+      setValidationError("Invalid verification code. Please try again.")
+      setIsValidating(false)
+      return
+    }
+
+    // Simulate verification delay
+    setTimeout(() => {
+      setIsValidating(false)
+      setEmailVerified(true)
+      setUserEmail(inputEmail)
+
+      // Create a new token with the verified email
+      const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
+      setRecoveryTokenData({
+        token: inputToken,
+        expiresAt: expiresAt,
+        email: inputEmail,
+      })
+
+      setRecoveryStep("success")
+
+      toast({
+        title: "Email Verified",
+        description: "Your email has been verified and your progress has been restored.",
+        duration: 3000,
+      })
+    }, 1000)
+  }
+
+  // Function to complete the recovery process
+  const handleCompleteRecovery = () => {
+    setIsOpen(false)
+
+    // In a real implementation, we would reload the page or update the UI
+    // to reflect the restored progress
+    window.location.reload()
+  }
+
+  // Function to save email during token generation
+  const handleSaveEmail = () => {
+    if (!userEmail && recoveryTokenData) {
+      if (!validateEmail(inputEmail)) {
         toast({
-          title: "Progress Restored",
-          description: "Your progress has been successfully restored.",
+          title: "Invalid Email",
+          description: "Please enter a valid email address.",
+          variant: "destructive",
           duration: 3000,
         })
-
-        setIsOpen(false)
-        setIsValidating(false)
-
-        // In a real implementation, we would reload the page or update the UI
-        // to reflect the restored progress
-        window.location.reload()
-      } catch (error) {
-        setValidationError("Failed to restore progress. Please try again.")
-        setIsValidating(false)
+        return
       }
-    }, 1000)
+
+      setUserEmail(inputEmail)
+
+      // Update the token data with the email
+      setRecoveryTokenData({
+        ...recoveryTokenData,
+        email: inputEmail,
+      })
+
+      toast({
+        title: "Email Saved",
+        description: "Your email has been associated with your recovery code.",
+        duration: 3000,
+      })
+    }
   }
 
   // Button to open the modal - show different text for fresh users
@@ -202,6 +328,13 @@ export function RecoveryCodeModal() {
         onClick={() => {
           setIsOpen(true)
           setActiveTab(isFreshUser ? "restore" : "view")
+          // Reset recovery flow state
+          setRecoveryStep("code")
+          setInputToken("")
+          setInputEmail("")
+          setInputVerificationCode("")
+          setEmailVerified(false)
+          setValidationError("")
         }}
         className="flex items-center gap-2"
       >
@@ -275,6 +408,40 @@ export function RecoveryCodeModal() {
                     </p>
                   </div>
 
+                  {/* Email association section */}
+                  <div className="mt-4 p-3 border rounded-md">
+                    <h4 className="font-medium flex items-center gap-2 mb-2">
+                      <Mail className="h-4 w-4" /> Email Association
+                    </h4>
+
+                    {userEmail ? (
+                      <div className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>
+                          Recovery code is associated with: <strong>{userEmail}</strong>
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          Associate an email with your recovery code for additional security.
+                        </p>
+                        <div className="flex gap-2">
+                          <Input
+                            type="email"
+                            placeholder="Enter your email"
+                            value={inputEmail}
+                            onChange={(e) => setInputEmail(e.target.value)}
+                            size={30}
+                          />
+                          <Button size="sm" onClick={handleSaveEmail}>
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <Button onClick={handleCopyToClipboard} className="flex items-center justify-center gap-2">
                       <Copy className="h-4 w-4" />
@@ -295,39 +462,150 @@ export function RecoveryCodeModal() {
 
             <TabsContent value="restore" className="mt-4">
               <div className="space-y-4">
-                <div className="text-sm text-muted-foreground">
-                  <p className="flex items-start gap-2">
-                    <KeyRound className="h-4 w-4 mt-1 flex-shrink-0" />
-                    Enter your recovery code to restore your progress from another device or browser.
-                  </p>
-                </div>
+                {recoveryStep === "code" && (
+                  <>
+                    <div className="text-sm text-muted-foreground">
+                      <p className="flex items-start gap-2">
+                        <KeyRound className="h-4 w-4 mt-1 flex-shrink-0" />
+                        Enter your recovery code to restore your progress from another device or browser.
+                      </p>
+                    </div>
 
-                <Input
-                  placeholder="Enter your recovery code"
-                  value={inputToken}
-                  onChange={(e) => {
-                    setInputToken(e.target.value)
-                    setValidationError("")
-                  }}
-                  className="font-mono"
-                />
+                    <Input
+                      placeholder="Enter your recovery code"
+                      value={inputToken}
+                      onChange={(e) => {
+                        setInputToken(e.target.value)
+                        setValidationError("")
+                      }}
+                      className="font-mono"
+                    />
 
-                {validationError && <div className="text-sm text-destructive">{validationError}</div>}
+                    {validationError && <div className="text-sm text-destructive">{validationError}</div>}
 
-                <Button
-                  onClick={handleRestoreProgress}
-                  disabled={!inputToken || isValidating}
-                  className="w-full flex items-center justify-center gap-2"
-                >
-                  {isValidating ? (
-                    "Validating..."
-                  ) : (
-                    <>
-                      Restore Progress
-                      <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </Button>
+                    <Button
+                      onClick={handleValidateRecoveryCode}
+                      disabled={!inputToken || isValidating}
+                      className="w-full flex items-center justify-center gap-2"
+                    >
+                      {isValidating ? (
+                        "Validating..."
+                      ) : (
+                        <>
+                          Continue
+                          <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+
+                {recoveryStep === "email" && (
+                  <>
+                    <Alert className="mb-4">
+                      <Shield className="h-4 w-4" />
+                      <AlertTitle>Two-Factor Authentication</AlertTitle>
+                      <AlertDescription>
+                        For security, we need to verify your email before restoring your progress.
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Address</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="Enter your email address"
+                        value={inputEmail}
+                        onChange={(e) => {
+                          setInputEmail(e.target.value)
+                          setValidationError("")
+                        }}
+                      />
+                    </div>
+
+                    {validationError && <div className="text-sm text-destructive">{validationError}</div>}
+
+                    <Button
+                      onClick={handleSendVerificationCode}
+                      disabled={!inputEmail || isSendingCode}
+                      className="w-full flex items-center justify-center gap-2"
+                    >
+                      {isSendingCode ? (
+                        "Sending Code..."
+                      ) : (
+                        <>
+                          Send Verification Code
+                          <Mail className="h-4 w-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+
+                {recoveryStep === "verify" && (
+                  <>
+                    <Alert className="mb-4">
+                      <Mail className="h-4 w-4" />
+                      <AlertTitle>Check Your Email</AlertTitle>
+                      <AlertDescription>
+                        We've sent a verification code to {inputEmail}. The code will expire in 10 minutes.
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="verificationCode">Verification Code</Label>
+                      <Input
+                        id="verificationCode"
+                        placeholder="Enter 6-digit code"
+                        value={inputVerificationCode}
+                        onChange={(e) => {
+                          setInputVerificationCode(e.target.value)
+                          setValidationError("")
+                        }}
+                        maxLength={6}
+                      />
+                    </div>
+
+                    {validationError && <div className="text-sm text-destructive">{validationError}</div>}
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleSendVerificationCode}
+                        disabled={isSendingCode}
+                        className="flex-1"
+                      >
+                        {isSendingCode ? "Sending..." : "Resend Code"}
+                      </Button>
+                      <Button
+                        onClick={handleVerifyCode}
+                        disabled={!inputVerificationCode || isValidating || inputVerificationCode.length !== 6}
+                        className="flex-1 flex items-center justify-center gap-2"
+                      >
+                        {isValidating ? "Verifying..." : "Verify Code"}
+                      </Button>
+                    </div>
+                  </>
+                )}
+
+                {recoveryStep === "success" && (
+                  <>
+                    <div className="text-center py-4">
+                      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-green-100 mb-4">
+                        <CheckCircle className="h-6 w-6 text-green-600" />
+                      </div>
+                      <h3 className="text-lg font-medium mb-2">Recovery Successful!</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Your progress has been successfully restored. Your email {inputEmail} is now associated with
+                        your recovery code for future recoveries.
+                      </p>
+                      <Button onClick={handleCompleteRecovery} className="w-full">
+                        Continue to Dashboard
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             </TabsContent>
           </Tabs>

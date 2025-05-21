@@ -12,7 +12,7 @@ const workSans = Work_Sans({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Cyber Essentials Preparation Guide",
   description: "A practical guide for SMEs to prepare for Cyber Essentials certification",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${workSans.className} flex flex-col min-h-screen`}>
-        <ThemeProvider defaultTheme="light">
+        <ThemeProvider attribute="class" defaultTheme="light">
           <main className="flex-grow">{children}</main>
           <Footer />
           <ChatAssistant />
