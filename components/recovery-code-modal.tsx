@@ -6,7 +6,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Copy, X, Info } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useLocalStorage } from "@/hooks/use-local-storage"
-import { v4 as uuidv4 } from "uuid"
+
+// Generate a UUID v4 token
+function generateUUID() {
+  // This is a simple UUID v4 implementation
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === "x" ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
 
 export function RecoveryCodeModal() {
   const { toast } = useToast()
@@ -16,7 +25,7 @@ export function RecoveryCodeModal() {
   // Generate a token if one doesn't exist
   useEffect(() => {
     if (!recoveryToken) {
-      const newToken = uuidv4()
+      const newToken = generateUUID()
       setRecoveryToken(newToken)
     }
   }, [recoveryToken, setRecoveryToken])
