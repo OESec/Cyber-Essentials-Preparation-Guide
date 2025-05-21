@@ -20,6 +20,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+// Add the import for the RecoveryCodeModal component
+import { RecoveryCodeModal } from "@/components/recovery-code-modal"
 
 export default function Dashboard() {
   const { toast } = useToast()
@@ -247,9 +249,12 @@ export default function Dashboard() {
           </Link>
           <h1 className="text-3xl font-bold">Cyber Essentials Preparation</h1>
         </div>
-        <Button variant="outline" onClick={handleResetClick}>
-          Reset Progress
-        </Button>
+        <div className="flex items-center gap-2">
+          <RecoveryCodeModal />
+          <Button variant="outline" onClick={handleResetClick}>
+            Reset Progress
+          </Button>
+        </div>
       </div>
 
       <Card className="mb-8">
