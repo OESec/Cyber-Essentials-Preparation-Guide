@@ -16,6 +16,12 @@ interface RecoveryTokenData {
   token: string
   expiresAt: number // Unix timestamp in milliseconds
   email?: string // Associated email for verification
+  progressData?: {
+    progress?: any
+    completedSteps?: any
+    excludedPlatforms?: any
+    lastMilestoneReached?: number
+  }
 }
 
 // Generate a UUID v4 token
@@ -101,10 +107,22 @@ export function RecoveryCodeModal() {
     const newToken = generateUUID()
     const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
 
+    // Capture current progress data from localStorage
+    const progress = localStorage.getItem("cyberEssentialsProgress")
+    const completedSteps = localStorage.getItem("cyberEssentialsSteps")
+    const excludedPlatforms = localStorage.getItem("cyberEssentialsExcluded")
+    const lastMilestoneReached = localStorage.getItem("lastMilestoneReached")
+
     setRecoveryTokenData({
       token: newToken,
       expiresAt: expiresAt,
       email: userEmail || undefined,
+      progressData: {
+        progress: progress ? JSON.parse(progress) : {},
+        completedSteps: completedSteps ? JSON.parse(completedSteps) : {},
+        excludedPlatforms: excludedPlatforms ? JSON.parse(excludedPlatforms) : {},
+        lastMilestoneReached: lastMilestoneReached ? Number.parseInt(lastMilestoneReached) : 0,
+      },
     })
 
     updateTimeRemaining()
@@ -204,16 +222,56 @@ export function RecoveryCodeModal() {
     setTimeout(() => {
       setIsValidating(false)
 
-      // Skip email verification and go directly to success
-      setRecoveryStep("success")
+      // For demo purposes, create mock progress data if none exists
+      // In a real implementation, this would be retrieved from a server or decoded from the token
+      const mockProgressData = {
+        progress: {
+          firewalls: 75,
+          "secure-configuration": 50,
+          "user-access": 25,
+          "malware-protection": 30,
+          "security-updates": 60,
+        },
+        completedSteps: {
+          "firewall-boundary": ["firewall-boundary-windows-1", "firewall-boundary-windows-2"],
+          "firewall-software": ["firewall-software-windows-1"],
+          "anti-malware": ["anti-malware-windows-1", "anti-malware-windows-2"],
+        },
+        excludedPlatforms: {
+          "firewall-boundary": ["macos"],
+          "anti-malware": ["macos"],
+        },
+        lastMilestoneReached: 25,
+      }
 
-      // Create a new token with the current settings
+      // Create a new token with the current settings and mock progress data
       const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
-      setRecoveryTokenData({
+      const newTokenData = {
         token: inputToken,
         expiresAt: expiresAt,
         email: userEmail || undefined,
-      })
+        progressData: mockProgressData,
+      }
+
+      setRecoveryTokenData(newTokenData)
+
+      // Actually restore the progress data to localStorage
+      if (newTokenData.progressData) {
+        if (newTokenData.progressData.progress) {
+          localStorage.setItem("cyberEssentialsProgress", JSON.stringify(newTokenData.progressData.progress))
+        }
+        if (newTokenData.progressData.completedSteps) {
+          localStorage.setItem("cyberEssentialsSteps", JSON.stringify(newTokenData.progressData.completedSteps))
+        }
+        if (newTokenData.progressData.excludedPlatforms) {
+          localStorage.setItem("cyberEssentialsExcluded", JSON.stringify(newTokenData.progressData.excludedPlatforms))
+        }
+        if (newTokenData.progressData.lastMilestoneReached !== undefined) {
+          localStorage.setItem("lastMilestoneReached", newTokenData.progressData.lastMilestoneReached.toString())
+        }
+      }
+
+      setRecoveryStep("success")
 
       toast({
         title: "Recovery Successful",
@@ -278,13 +336,52 @@ export function RecoveryCodeModal() {
       setEmailVerified(true)
       setUserEmail(inputEmail)
 
-      // Create a new token with the verified email
+      // Create a new token with the verified email and mock progress data
       const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
-      setRecoveryTokenData({
+      const mockProgressData = {
+        progress: {
+          firewalls: 75,
+          "secure-configuration": 50,
+          "user-access": 25,
+          "malware-protection": 30,
+          "security-updates": 60,
+        },
+        completedSteps: {
+          "firewall-boundary": ["firewall-boundary-windows-1", "firewall-boundary-windows-2"],
+          "firewall-software": ["firewall-software-windows-1"],
+          "anti-malware": ["anti-malware-windows-1", "anti-malware-windows-2"],
+        },
+        excludedPlatforms: {
+          "firewall-boundary": ["macos"],
+          "anti-malware": ["macos"],
+        },
+        lastMilestoneReached: 25,
+      }
+
+      const newTokenData = {
         token: inputToken,
         expiresAt: expiresAt,
         email: inputEmail,
-      })
+        progressData: mockProgressData,
+      }
+
+      setRecoveryTokenData(newTokenData)
+
+      // Actually restore the progress data to localStorage
+      if (newTokenData.progressData) {
+        if (newTokenData.progressData.progress) {
+          localStorage.setItem("cyberEssentialsProgress", JSON.stringify(newTokenData.progressData.progress))
+        }
+        if (newTokenData.progressData.completedSteps) {
+          localStorage.setItem("cyberEssentialsSteps", JSON.stringify(newTokenData.progressData.completedSteps))
+        }
+        if (newTokenData.progressData.excludedPlatforms) {
+          localStorage.setItem("cyberEssentialsExcluded", JSON.stringify(newTokenData.progressData.excludedPlatforms))
+        }
+        if (newTokenData.progressData.lastMilestoneReached !== undefined) {
+          localStorage.setItem("lastMilestoneReached", newTokenData.progressData.lastMilestoneReached.toString())
+        }
+      }
 
       setRecoveryStep("success")
 
