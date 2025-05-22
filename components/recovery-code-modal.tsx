@@ -67,12 +67,21 @@ export function RecoveryCodeModal() {
 
   // Generate a token if one doesn't exist or refresh the expiration timer
   useEffect(() => {
+    // Initialize component on first load
     if (!initialLoadComplete) {
       if (!recoveryTokenData) {
+        // Generate new token if none exists
         generateNewTokenSilently()
       } else {
-        // Calculate time remaining
-        updateTimeRemaining()
+        // Calculate time remaining immediately to avoid showing "Expired" briefly
+        const now = Date.now()
+        const remaining = Math.max(0, recoveryTokenData.expiresAt - now)
+        setTimeRemaining(remaining)
+
+        // Calculate percentage of time remaining
+        const totalDuration = DEFAULT_EXPIRATION_PERIOD
+        const percentage = Math.max(0, Math.min(100, (remaining / totalDuration) * 100))
+        setExpirationPercentage(percentage)
 
         // If we have an email stored with the token, use it
         if (recoveryTokenData.email && !userEmail) {
@@ -127,6 +136,9 @@ export function RecoveryCodeModal() {
 
     updateTimeRemaining()
 
+    // Ensure we stay on the "view" tab after generating a new token
+    setActiveTab("view")
+
     toast({
       title: "New Recovery Code Generated",
       description: "Your recovery code will expire in 30 days. Make sure to save it.",
@@ -134,18 +146,21 @@ export function RecoveryCodeModal() {
     })
   }
 
-  // Function to update time remaining calculation
   const updateTimeRemaining = () => {
     if (!recoveryTokenData) return
 
     const now = Date.now()
     const remaining = Math.max(0, recoveryTokenData.expiresAt - now)
-    setTimeRemaining(remaining)
 
-    // Calculate percentage of time remaining
-    const totalDuration = DEFAULT_EXPIRATION_PERIOD
-    const percentage = Math.max(0, Math.min(100, (remaining / totalDuration) * 100))
-    setExpirationPercentage(percentage)
+    // Only update if we have a valid value to avoid flickering
+    if (remaining > 0 || timeRemaining === null) {
+      setTimeRemaining(remaining)
+
+      // Calculate percentage of time remaining
+      const totalDuration = DEFAULT_EXPIRATION_PERIOD
+      const percentage = Math.max(0, Math.min(100, (remaining / totalDuration) * 100))
+      setExpirationPercentage(percentage)
+    }
   }
 
   // Format the time remaining in a human-readable format
