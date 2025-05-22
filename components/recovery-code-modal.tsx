@@ -114,6 +114,22 @@ export function RecoveryCodeModal() {
     const newToken = generateUUID()
     const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
 
+    // Save current progress with the new token
+    try {
+      const currentProgress = localStorage.getItem("cyberEssentialsProgress")
+      const currentSteps = localStorage.getItem("cyberEssentialsSteps")
+
+      if (currentProgress) {
+        localStorage.setItem(`progress_${newToken}`, currentProgress)
+      }
+
+      if (currentSteps) {
+        localStorage.setItem(`steps_${newToken}`, currentSteps)
+      }
+    } catch (error) {
+      console.error("Error saving progress with new token:", error)
+    }
+
     setRecoveryTokenData({
       token: newToken,
       expiresAt: expiresAt,
@@ -127,6 +143,22 @@ export function RecoveryCodeModal() {
   const generateNewToken = () => {
     const newToken = generateUUID()
     const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
+
+    // Save current progress with the new token
+    try {
+      const currentProgress = localStorage.getItem("cyberEssentialsProgress")
+      const currentSteps = localStorage.getItem("cyberEssentialsSteps")
+
+      if (currentProgress) {
+        localStorage.setItem(`progress_${newToken}`, currentProgress)
+      }
+
+      if (currentSteps) {
+        localStorage.setItem(`steps_${newToken}`, currentSteps)
+      }
+    } catch (error) {
+      console.error("Error saving progress with new token:", error)
+    }
 
     setRecoveryTokenData({
       token: newToken,
@@ -237,22 +269,52 @@ export function RecoveryCodeModal() {
     setTimeout(() => {
       setIsValidating(false)
 
-      // Skip email verification and go directly to success
-      setRecoveryStep("success")
+      // Check if there's any saved progress data associated with this token
+      try {
+        // Look for progress data in localStorage that might be associated with this token
+        const progressKey = `progress_${inputToken}`
+        const stepsKey = `steps_${inputToken}`
 
-      // Create a new token with the current settings
-      const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
-      setRecoveryTokenData({
-        token: inputToken,
-        expiresAt: expiresAt,
-        email: userEmail || undefined,
-      })
+        const savedProgressData = localStorage.getItem(progressKey)
+        const savedStepsData = localStorage.getItem(stepsKey)
 
-      toast({
-        title: "Recovery Successful",
-        description: "Your progress has been restored successfully.",
-        duration: 3000,
-      })
+        // If we found saved data, restore it to the current session
+        if (savedProgressData) {
+          localStorage.setItem("cyberEssentialsProgress", savedProgressData)
+        }
+
+        if (savedStepsData) {
+          localStorage.setItem("cyberEssentialsSteps", savedStepsData)
+        }
+
+        // Create a new token with the current settings
+        const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
+        setRecoveryTokenData({
+          token: inputToken,
+          expiresAt: expiresAt,
+          email: userEmail || undefined,
+        })
+
+        // Also save the current progress with the new token
+        if (savedProgressData) {
+          localStorage.setItem(`progress_${inputToken}`, savedProgressData)
+        }
+
+        if (savedStepsData) {
+          localStorage.setItem(`steps_${inputToken}`, savedStepsData)
+        }
+
+        setRecoveryStep("success")
+
+        toast({
+          title: "Recovery Successful",
+          description: "Your progress has been restored successfully.",
+          duration: 3000,
+        })
+      } catch (error) {
+        console.error("Error during recovery:", error)
+        setValidationError("An error occurred while trying to restore your progress. Please try again.")
+      }
     }, 1000)
   }
 
