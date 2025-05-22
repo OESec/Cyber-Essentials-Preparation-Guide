@@ -114,22 +114,6 @@ export function RecoveryCodeModal() {
     const newToken = generateUUID()
     const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
 
-    // Save current progress with the new token
-    try {
-      const currentProgress = localStorage.getItem("cyberEssentialsProgress")
-      const currentSteps = localStorage.getItem("cyberEssentialsSteps")
-
-      if (currentProgress) {
-        localStorage.setItem(`progress_${newToken}`, currentProgress)
-      }
-
-      if (currentSteps) {
-        localStorage.setItem(`steps_${newToken}`, currentSteps)
-      }
-    } catch (error) {
-      console.error("Error saving progress with new token:", error)
-    }
-
     setRecoveryTokenData({
       token: newToken,
       expiresAt: expiresAt,
@@ -144,20 +128,20 @@ export function RecoveryCodeModal() {
     const newToken = generateUUID()
     const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
 
-    // Save current progress with the new token
+    // Save current progress data with the new token
     try {
       const currentProgress = localStorage.getItem("cyberEssentialsProgress")
       const currentSteps = localStorage.getItem("cyberEssentialsSteps")
 
       if (currentProgress) {
-        localStorage.setItem(`progress_${newToken}`, currentProgress)
+        localStorage.setItem(`cyberEssentialsProgress_${newToken}`, currentProgress)
       }
 
       if (currentSteps) {
-        localStorage.setItem(`steps_${newToken}`, currentSteps)
+        localStorage.setItem(`cyberEssentialsSteps_${newToken}`, currentSteps)
       }
     } catch (error) {
-      console.error("Error saving progress with new token:", error)
+      console.error("Error saving progress with token:", error)
     }
 
     setRecoveryTokenData({
@@ -269,23 +253,26 @@ export function RecoveryCodeModal() {
     setTimeout(() => {
       setIsValidating(false)
 
-      // Check if there's any saved progress data associated with this token
       try {
-        // Look for progress data in localStorage that might be associated with this token
-        const progressKey = `progress_${inputToken}`
-        const stepsKey = `steps_${inputToken}`
+        // Check if there's any progress data stored with this token
+        const progressKey = `cyberEssentialsProgress_${inputToken}`
+        const stepsKey = `cyberEssentialsSteps_${inputToken}`
 
-        const savedProgressData = localStorage.getItem(progressKey)
-        const savedStepsData = localStorage.getItem(stepsKey)
+        // Try to load progress data associated with this token
+        const savedProgress = localStorage.getItem(progressKey)
+        const savedSteps = localStorage.getItem(stepsKey)
 
-        // If we found saved data, restore it to the current session
-        if (savedProgressData) {
-          localStorage.setItem("cyberEssentialsProgress", savedProgressData)
+        // If progress data exists, restore it to the current session
+        if (savedProgress) {
+          localStorage.setItem("cyberEssentialsProgress", savedProgress)
         }
 
-        if (savedStepsData) {
-          localStorage.setItem("cyberEssentialsSteps", savedStepsData)
+        if (savedSteps) {
+          localStorage.setItem("cyberEssentialsSteps", savedSteps)
         }
+
+        // Skip email verification and go directly to success
+        setRecoveryStep("success")
 
         // Create a new token with the current settings
         const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
@@ -295,25 +282,22 @@ export function RecoveryCodeModal() {
           email: userEmail || undefined,
         })
 
-        // Also save the current progress with the new token
-        if (savedProgressData) {
-          localStorage.setItem(`progress_${inputToken}`, savedProgressData)
-        }
-
-        if (savedStepsData) {
-          localStorage.setItem(`steps_${inputToken}`, savedStepsData)
-        }
-
-        setRecoveryStep("success")
-
         toast({
           title: "Recovery Successful",
-          description: "Your progress has been restored successfully.",
+          description:
+            savedProgress || savedSteps
+              ? "Your progress has been restored successfully."
+              : "Recovery code accepted, but no saved progress was found.",
           duration: 3000,
         })
       } catch (error) {
-        console.error("Error during recovery:", error)
-        setValidationError("An error occurred while trying to restore your progress. Please try again.")
+        console.error("Error restoring progress:", error)
+        toast({
+          title: "Recovery Error",
+          description: "There was an error restoring your progress. Please try again.",
+          variant: "destructive",
+          duration: 3000,
+        })
       }
     }, 1000)
   }
