@@ -164,12 +164,27 @@ export function RecoveryCodeModal() {
 
   const handleCopyToClipboard = () => {
     if (recoveryTokenData?.token) {
-      navigator.clipboard.writeText(recoveryTokenData.token)
-      toast({
-        title: "Copied to clipboard",
-        description: "Your recovery code has been copied to your clipboard.",
-        duration: 3000,
-      })
+      // Use the Clipboard API to copy text
+      navigator.clipboard
+        .writeText(recoveryTokenData.token)
+        .then(() => {
+          // Show toast notification on successful copy
+          toast({
+            title: "Copied to clipboard",
+            description: "Your recovery code has been copied to your clipboard.",
+            duration: 3000,
+          })
+        })
+        .catch((err) => {
+          // Handle errors (e.g., if clipboard permissions are denied)
+          console.error("Failed to copy: ", err)
+          toast({
+            title: "Copy failed",
+            description: "Could not copy to clipboard. Please try again.",
+            variant: "destructive",
+            duration: 3000,
+          })
+        })
     }
   }
 
