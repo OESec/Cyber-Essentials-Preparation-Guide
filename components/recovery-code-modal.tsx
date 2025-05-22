@@ -60,31 +60,35 @@ export function RecoveryCodeModal() {
   const [recoveryStep, setRecoveryStep] = useState<"code" | "success">("code")
   const [emailVerified, setEmailVerified] = useState(false)
   const [userEmail, setUserEmail] = useLocalStorage<string | null>("cyberEssentialsUserEmail", null)
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
 
   // Check if this is a fresh user (no progress data)
   const [isFreshUser, setIsFreshUser] = useState(true)
 
   // Generate a token if one doesn't exist or refresh the expiration timer
   useEffect(() => {
-    if (!recoveryTokenData) {
-      generateNewToken()
-    } else {
-      // Calculate time remaining
-      updateTimeRemaining()
+    if (!initialLoadComplete) {
+      if (!recoveryTokenData) {
+        generateNewTokenSilently()
+      } else {
+        // Calculate time remaining
+        updateTimeRemaining()
 
-      // If we have an email stored with the token, use it
-      if (recoveryTokenData.email && !userEmail) {
-        setUserEmail(recoveryTokenData.email)
+        // If we have an email stored with the token, use it
+        if (recoveryTokenData.email && !userEmail) {
+          setUserEmail(recoveryTokenData.email)
+        }
       }
+
+      // Check if user has any existing progress
+      const progressData = localStorage.getItem("cyberEssentialsProgress")
+      const completedStepsData = localStorage.getItem("cyberEssentialsSteps")
+      const hasProgress = progressData && Object.keys(JSON.parse(progressData)).length > 0
+      const hasCompletedSteps = completedStepsData && Object.keys(JSON.parse(completedStepsData)).length > 0
+
+      setIsFreshUser(!hasProgress && !hasCompletedSteps)
+      setInitialLoadComplete(true)
     }
-
-    // Check if user has any existing progress
-    const progressData = localStorage.getItem("cyberEssentialsProgress")
-    const completedStepsData = localStorage.getItem("cyberEssentialsSteps")
-    const hasProgress = progressData && Object.keys(JSON.parse(progressData)).length > 0
-    const hasCompletedSteps = completedStepsData && Object.keys(JSON.parse(completedStepsData)).length > 0
-
-    setIsFreshUser(!hasProgress && !hasCompletedSteps)
 
     // If fresh user and modal is opened, default to the restore tab
     if (isFreshUser && isOpen) {
@@ -94,9 +98,23 @@ export function RecoveryCodeModal() {
     // Set up interval to update time remaining
     const interval = setInterval(updateTimeRemaining, 60000) // Update every minute
     return () => clearInterval(interval)
-  }, [recoveryTokenData, isOpen, isFreshUser, userEmail])
+  }, [recoveryTokenData, isOpen, isFreshUser, userEmail, initialLoadComplete])
 
-  // Function to generate a new token with expiration
+  // Function to generate a new token with expiration (silently, without toast)
+  const generateNewTokenSilently = () => {
+    const newToken = generateUUID()
+    const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
+
+    setRecoveryTokenData({
+      token: newToken,
+      expiresAt: expiresAt,
+      email: userEmail || undefined,
+    })
+
+    updateTimeRemaining()
+  }
+
+  // Function to generate a new token with expiration (with toast notification)
   const generateNewToken = () => {
     const newToken = generateUUID()
     const expiresAt = Date.now() + DEFAULT_EXPIRATION_PERIOD
