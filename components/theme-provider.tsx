@@ -1,12 +1,10 @@
 "use client"
-import { ThemeProvider as NextThemesProvider } from "next-themes"
-import { useTheme as useNextTheme } from "next-themes"
+import { ThemeProvider as NextThemesProvider, useTheme as useNextTheme } from "next-themes"
+import type { ThemeProviderProps } from "next-themes"
 
-export function ThemeProvider({ children, ...props }) {
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   return <NextThemesProvider {...props}>{children}</NextThemesProvider>
 }
 
-// Replace the placeholder useTheme with the actual hook from next-themes
-export function useTheme() {
-  return useNextTheme()
-}
+// Re-export the useTheme hook from next-themes
+export const useTheme = useNextTheme
