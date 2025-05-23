@@ -22,9 +22,6 @@ import {
 } from "@/components/ui/alert-dialog"
 // Add the import for the RecoveryCodeModal component
 import { RecoveryCodeModal } from "@/components/recovery-code-modal"
-// Add the import for our new components at the top of the file
-import { ProgressRadarChart } from "@/components/progress-radar-chart"
-import { MilestoneCelebration } from "@/components/milestone-celebration"
 
 export default function Dashboard() {
   const { toast } = useToast()
@@ -243,7 +240,6 @@ export default function Dashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <MilestoneCelebration />
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-2">
           <Link href="/">
@@ -316,11 +312,6 @@ export default function Dashboard() {
               {overallProgress >= 100 && "Congratulations! You've completed all requirements"}
             </div>
           </div>
-        </CardContent>
-      </Card>
-      <Card className="mb-8">
-        <CardContent className="pt-6">
-          <ProgressRadarChart />
         </CardContent>
       </Card>
 
