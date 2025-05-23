@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Moon, Sun, Volume2, VolumeX } from "lucide-react"
 import { useTheme } from "@/components/theme-provider"
+import Link from "next/link"
 
 export function Footer() {
   const { theme, setTheme } = useTheme()
@@ -93,7 +94,13 @@ export function Footer() {
           className={`text-base font-medium transition-colors duration-500
           ${theme === "dark" ? "text-blue-200" : "text-blue-800"}`}
         >
-          Copyright 2025 | Idea of Edewede O. | 20th May 2025
+          Copyright 2025 | Idea of Edewede O. | 20th May 2025 |{" "}
+          <Link
+            href="/recovery-guide"
+            className={`underline hover:opacity-80 ${theme === "dark" ? "text-blue-200" : "text-blue-800"}`}
+          >
+            Recovery Code Guide
+          </Link>
         </p>
 
         <div className="flex items-center gap-2">
