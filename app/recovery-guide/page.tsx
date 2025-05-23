@@ -1,7 +1,27 @@
+"use client"
+
+import { useRouter } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
+import { Button } from "@/components/ui/button"
+
 export default function RecoveryGuidePage() {
+  const router = useRouter()
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-6">Recovery Code Guide</h1>
+      <div className="mb-6 flex items-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.back()}
+          className="mr-4 flex items-center text-sm font-medium"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+        <h1 className="text-3xl font-bold">Recovery Code Guide</h1>
+      </div>
 
       <div className="prose prose-lg max-w-none">
         <h2 className="text-2xl font-semibold mt-8 mb-4">Complete Recovery Code Process Explanation</h2>

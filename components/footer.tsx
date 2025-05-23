@@ -96,6 +96,13 @@ export function Footer() {
         >
           Copyright 2025 | Idea of Edewede O. | 20th May 2025 |{" "}
           <Link
+            href="/analytics"
+            className={`underline hover:opacity-80 ${theme === "dark" ? "text-blue-200" : "text-blue-800"}`}
+          >
+            Analytics
+          </Link>
+          {" | "}
+          <Link
             href="/recovery-guide"
             className={`underline hover:opacity-80 ${theme === "dark" ? "text-blue-200" : "text-blue-800"}`}
           >

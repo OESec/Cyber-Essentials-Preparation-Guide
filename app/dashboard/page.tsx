@@ -26,7 +26,6 @@ import { RecoveryCodeModal } from "@/components/recovery-code-modal"
 // Add these imports for the new features
 import { OrganizationProfileSetup } from "@/components/organization-profile-setup"
 import { PersonalizedRecommendations } from "@/components/personalized-recommendations"
-import { ProgressRadarChart } from "@/components/progress-radar-chart"
 import { MilestoneCelebration } from "@/components/milestone-celebration"
 import { isPersonalizationSetup, initializePersonalization } from "@/lib/ai-personalization"
 
@@ -175,6 +174,8 @@ export default function Dashboard() {
     return totalStepsCount > 0 ? (completedStepsCount / totalStepsCount) * 100 : 0
   }
 
+  const overallProgress = calculateOverallProgress()
+
   // Enhanced milestone achievement check with celebration
   useEffect(() => {
     const currentProgress = calculateOverallProgress()
@@ -225,7 +226,9 @@ export default function Dashboard() {
       })
       window.dispatchEvent(celebrationEvent)
     }
-  }, [calculateOverallProgress(), lastMilestoneReached, setLastMilestoneReached, toast])
+    // Calculate the value outside the dependency array
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overallProgress, lastMilestoneReached])
 
   const handleResetClick = () => {
     setShowResetConfirmation(true)
@@ -266,8 +269,6 @@ export default function Dashboard() {
         return <FileText className="h-6 w-6" />
     }
   }
-
-  const overallProgress = calculateOverallProgress()
 
   // Add this handler for profile setup completion
   const handleProfileSetupComplete = () => {
@@ -368,11 +369,6 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Progress Radar Chart */}
-      <div className="mb-8">
-        <ProgressRadarChart />
-      </div>
-
       {/* Personalized Recommendations */}
       {isPersonalized && (
         <div className="mb-8">
@@ -408,6 +404,33 @@ export default function Dashboard() {
             </Card>
           </Link>
         ))}
+        <Link href="/smart-documentation" key="smart-documentation">
+          <Card className="h-full cursor-pointer hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg font-medium">Smart Documentation</CardTitle>
+              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <FileText className="h-6 w-6" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="mb-2">
+                Auto-generate evidence collection and create dynamic documentation templates for your certification
+              </CardDescription>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Tools Available</span>
+                  <span className="text-sm font-medium">2</span>
+                </div>
+                <div className="h-1 bg-gray-200 rounded-full">
+                  <div className="h-1 bg-blue-600 rounded-full w-full" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-center text-sm text-blue-600">
+                Access Tools <ArrowRight className="ml-1 h-4 w-4" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Custom Reset Confirmation Dialog */}
