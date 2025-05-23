@@ -23,11 +23,22 @@ import {
 // Add the import for the RecoveryCodeModal component
 import { RecoveryCodeModal } from "@/components/recovery-code-modal"
 
+// Add these imports for the new features
+import { OrganizationProfileSetup } from "@/components/organization-profile-setup"
+import { PersonalizedRecommendations } from "@/components/personalized-recommendations"
+import { ProgressRadarChart } from "@/components/progress-radar-chart"
+import { MilestoneCelebration } from "@/components/milestone-celebration"
+import { isPersonalizationSetup, initializePersonalization } from "@/lib/ai-personalization"
+
 export default function Dashboard() {
   const { toast } = useToast()
   const [progress, setProgress] = useLocalStorage<Record<string, number>>("cyberEssentialsProgress", {})
   const [lastMilestoneReached, setLastMilestoneReached] = useLocalStorage<number>("lastMilestoneReached", 0)
   const [showResetConfirmation, setShowResetConfirmation] = useState(false)
+
+  // Add these state variables for personalization
+  const [showProfileSetup, setShowProfileSetup] = useState(false)
+  const [isPersonalized, setIsPersonalized] = useState(false)
 
   useEffect(() => {
     // Initialize progress for each section if not already set
@@ -95,6 +106,21 @@ export default function Dashboard() {
     }
   }, [progress, setProgress])
 
+  // Add this useEffect for personalization setup
+  useEffect(() => {
+    // Initialize personalization
+    initializePersonalization()
+
+    // Check if personalization is set up
+    const personalizationReady = isPersonalizationSetup()
+    setIsPersonalized(personalizationReady)
+
+    // Show profile setup if not already personalized
+    if (!personalizationReady) {
+      setShowProfileSetup(true)
+    }
+  }, [])
+
   const calculateOverallProgress = () => {
     if (Object.keys(progress).length === 0) return 0
 
@@ -149,8 +175,7 @@ export default function Dashboard() {
     return totalStepsCount > 0 ? (completedStepsCount / totalStepsCount) * 100 : 0
   }
 
-  // Update the milestone achievement check to include 0%
-  // Check for milestone achievements
+  // Enhanced milestone achievement check with celebration
   useEffect(() => {
     const currentProgress = calculateOverallProgress()
     const milestones = [0, 25, 50, 75, 100]
@@ -160,7 +185,7 @@ export default function Dashboard() {
       return currentProgress >= milestone ? milestone : highest
     }, 0)
 
-    // If we've reached a new milestone, show a toast
+    // If we've reached a new milestone, show a toast and trigger celebration
     if (highestMilestoneReached > lastMilestoneReached) {
       setLastMilestoneReached(highestMilestoneReached)
 
@@ -193,6 +218,12 @@ export default function Dashboard() {
         description,
         duration: 5000,
       })
+
+      // Trigger celebration animation
+      const celebrationEvent = new CustomEvent("milestone-reached", {
+        detail: { milestone: highestMilestoneReached, message: description },
+      })
+      window.dispatchEvent(celebrationEvent)
     }
   }, [calculateOverallProgress(), lastMilestoneReached, setLastMilestoneReached, toast])
 
@@ -238,8 +269,24 @@ export default function Dashboard() {
 
   const overallProgress = calculateOverallProgress()
 
+  // Add this handler for profile setup completion
+  const handleProfileSetupComplete = () => {
+    setShowProfileSetup(false)
+    setIsPersonalized(true)
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Milestone Celebration Component */}
+      <MilestoneCelebration />
+
+      {/* Profile Setup Modal */}
+      {showProfileSetup && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <OrganizationProfileSetup onComplete={handleProfileSetupComplete} />
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-2">
           <Link href="/">
@@ -251,6 +298,9 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2">
           <RecoveryCodeModal />
+          <Button variant="outline" onClick={() => setShowProfileSetup(true)} className="flex items-center gap-1">
+            <Settings className="h-4 w-4" /> Personalization Settings
+          </Button>
           <Button variant="outline" onClick={handleResetClick}>
             Reset Progress
           </Button>
@@ -314,6 +364,18 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Progress Radar Chart */}
+      <div className="mb-8">
+        <ProgressRadarChart />
+      </div>
+
+      {/* Personalized Recommendations */}
+      {isPersonalized && (
+        <div className="mb-8">
+          <PersonalizedRecommendations progress={progress} />
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {sections.map((section) => (
