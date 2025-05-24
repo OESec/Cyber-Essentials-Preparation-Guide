@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Moon, Sun, Volume2, VolumeX } from "lucide-react"
-import { useTheme } from "@/components/theme-provider"
+import { useTheme } from "next-themes"
 import Link from "next/link"
 
 export function Footer() {
