@@ -22,6 +22,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="stylesheet" href="/styles.css" />
+      </head>
       <body className={`${workSans.className} flex flex-col min-h-screen`}>
         <ThemeProvider attribute="class" defaultTheme="light">
           <main className="flex-grow">{children}</main>
