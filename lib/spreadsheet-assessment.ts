@@ -22,6 +22,7 @@ export interface AssessmentResult {
   overallScore: number
   sectionResults: SectionResult[]
   flaggedIssues: FlaggedIssue[]
+  passedQuestions: PassedQuestion[]
   completeness: number
   summary: string
 }
@@ -40,13 +41,20 @@ export interface FlaggedIssue {
   question: string
   issue: string
   severity: 'high' | 'medium' | 'low'
+  userAnswer: string
+}
+
+export interface PassedQuestion {
+  questionNo: string
+  question: string
+  userAnswer: string
+  answerType: string
 }
 
 /**
  * Identifies if a row is a question based on multiple criteria
  */
 export function isQuestionRow(row: any[]): boolean {
-  // Check if first cell contains a question number pattern (e.g., A1.1, A2.5)
   const firstCell = String(row[0] || '').trim()
   const extractedQuestionNo = extractQuestionNumber(firstCell)
   
@@ -57,13 +65,11 @@ export function isQuestionRow(row: any[]): boolean {
     return false
   }
   
-  // Check if there's question text
   const questionText = String(row[1] || '').trim()
   if (!questionText || questionText.length < 10) {
     return false
   }
   
-  // Check if it's NOT guidance text (guidance usually doesn't have question marks or is very long)
   const isGuidance = questionText.includes('In this section') || 
                      questionText.includes('You should include') ||
                      questionText.includes('For example:') ||
@@ -86,7 +92,6 @@ function isEmptyRow(row: any[]): boolean {
  * Checks if a row appears to be a title or header row (not data)
  */
 function isTitleRow(row: any[]): boolean {
-  // Check if row has merged cells pattern (first cell has content, rest are mostly empty)
   const firstCell = String(row[0] || '').trim()
   const restEmpty = row.slice(1).every(cell => String(cell || '').trim() === '')
   
@@ -94,7 +99,6 @@ function isTitleRow(row: any[]): boolean {
     return true
   }
   
-  // Check for typical title patterns
   const titlePatterns = [
     /cyber essentials/i,
     /question set/i,
@@ -112,17 +116,14 @@ function findDataStartRow(data: any[][]): number {
   for (let i = 0; i < Math.min(50, data.length); i++) {
     const row = data[i]
     
-    // Skip empty rows
     if (isEmptyRow(row)) {
       continue
     }
     
-    // Skip title rows
     if (isTitleRow(row)) {
       continue
     }
     
-    // Check if this row has multiple populated cells (likely a data or header row)
     const populatedCells = row.filter(cell => String(cell || '').trim() !== '').length
     if (populatedCells >= 3) {
       return i
@@ -134,30 +135,40 @@ function findDataStartRow(data: any[][]): number {
 
 export function detectAnswerColumn(data: any[][], startRow: number = 0, endRow: number = 50): number {
   const answerColumnNames = [
-    'answer', 
-    'my answer', 
-    'response', 
-    'user answer', 
-    'your answer',
-    'notes',
+    'responses',
+    'response',
     'my response',
     'user response',
-    'responses' // Added "responses" as seen in user's spreadsheet
+    'my answer', 
+    'user answer', 
+    'your answer',
+    'answer',
+    'notes'
   ]
   
   for (let i = startRow; i < Math.min(endRow, data.length); i++) {
     const row = data[i]
     for (let j = 0; j < row.length; j++) {
       const cell = String(row[j] || '').toLowerCase().trim()
-      // More flexible matching - check if any answer column name is contained in the cell
-      if (answerColumnNames.some(name => cell.includes(name))) {
-        console.log(`[v0] Found answer column "${cell}" at column ${j}, row ${i}`)
-        return j
+      
+      if (cell.includes('type')) {
+        continue
+      }
+      
+      for (const columnName of answerColumnNames) {
+        if (cell === columnName || cell === columnName + 's' || cell === columnName.slice(0, -1)) {
+          return j
+        }
+      }
+      
+      for (const columnName of answerColumnNames) {
+        if (cell.startsWith(columnName) && !cell.includes('type')) {
+          return j
+        }
       }
     }
   }
   
-  console.log('[v0] No answer column found automatically')
   return -1
 }
 
@@ -174,7 +185,6 @@ export function getColumnHeaders(data: any[][], headerRowIndex: number = 0): str
     if (cell) {
       headers.push(cell)
     } else {
-      // Use column letter if header is empty
       headers.push(getColumnLetter(i))
     }
   }
@@ -199,7 +209,6 @@ function getColumnLetter(index: number): string {
  */
 export function detectColumns(data: any[][]): ColumnDetectionResult {
   const dataStartRow = findDataStartRow(data)
-  console.log(`[v0] Data appears to start at row ${dataStartRow}`)
   
   let headerRowIndex = -1
   let questionNoCol = -1
@@ -211,7 +220,6 @@ export function detectColumns(data: any[][]): ColumnDetectionResult {
   for (let i = dataStartRow; i < Math.min(dataStartRow + 50, data.length); i++) {
     const row = data[i]
     
-    // Skip empty rows
     if (isEmptyRow(row)) {
       continue
     }
@@ -219,34 +227,25 @@ export function detectColumns(data: any[][]): ColumnDetectionResult {
     for (let j = 0; j < row.length; j++) {
       const cell = String(row[j] || '').toLowerCase().trim()
       
-      // Match "No.", "No", "Q.No", "Question No", "Q No"
       if ((cell.includes('no.') || cell === 'no' || cell.includes('q.no') || 
            cell.includes('question no') || cell.includes('q no')) && questionNoCol === -1) {
         questionNoCol = j
-        console.log(`[v0] Found question number column at ${j}: "${cell}"`)
       }
       
-      // Match "Question" but not "Question No" or "Question Type"
       if (cell.includes('question') && !cell.includes('no') && 
           !cell.includes('type') && questionTextCol === -1) {
         questionTextCol = j
-        console.log(`[v0] Found question text column at ${j}: "${cell}"`)
       }
       
-      // Match "Answer Type", "Type", "Response Type"
       if ((cell.includes('answer type') || cell.includes('response type') || 
            (cell === 'type' && answerTypeCol === -1))) {
         answerTypeCol = j
-        console.log(`[v0] Found answer type column at ${j}: "${cell}"`)
       }
     }
     
-    // If we found the key columns, this is the header row
     if (questionNoCol >= 0 && questionTextCol >= 0) {
       headerRowIndex = i
       detectedHeaders = getColumnHeaders(data, i)
-      console.log(`[v0] Header row detected at row ${i}`)
-      console.log(`[v0] Detected headers:`, detectedHeaders)
       break
     }
   }
@@ -257,9 +256,7 @@ export function detectColumns(data: any[][]): ColumnDetectionResult {
     userAnswerCol = detectAnswerColumn(data, dataStartRow, dataStartRow + 50)
   }
   
-  // If no header found, try pattern-based detection
   if (headerRowIndex === -1) {
-    console.log('[v0] No headers found, attempting pattern-based detection')
     const questionPattern = /[A-Z]\d+(?:\.\d+)*/
     
     for (let j = 0; j < Math.min(15, data[dataStartRow]?.length || 0); j++) {
@@ -277,23 +274,18 @@ export function detectColumns(data: any[][]): ColumnDetectionResult {
         answerTypeCol = j + 2
         headerRowIndex = dataStartRow
         detectedHeaders = getColumnHeaders(data, dataStartRow)
-        console.log(`[v0] Pattern-based detection: question numbers in column ${j} (${patternMatches} matches)`)
         break
       }
     }
   }
   
-  // Last resort fallback
   if (headerRowIndex === -1) {
-    console.log('[v0] Using fallback column positions')
     questionNoCol = 0
     questionTextCol = 1
     answerTypeCol = 2
     headerRowIndex = dataStartRow
     detectedHeaders = getColumnHeaders(data, dataStartRow)
   }
-  
-  console.log(`[v0] Final column configuration: Q No=${questionNoCol}, Q Text=${questionTextCol}, Answer Type=${answerTypeCol}, User Answer=${userAnswerCol}`)
   
   return {
     questionNoCol,
@@ -306,9 +298,6 @@ export function detectColumns(data: any[][]): ColumnDetectionResult {
   }
 }
 
-/**
- * Parses a spreadsheet and extracts questions with user answers
- */
 export function parseSpreadsheet(data: any[][], userAnswerColOverride?: number): SpreadsheetQuestion[] {
   const questions: SpreadsheetQuestion[] = []
   
@@ -356,11 +345,9 @@ export function parseSpreadsheet(data: any[][], userAnswerColOverride?: number):
     return parsed
   }
   
-  // Try detected columns
   let parsedQuestions = tryParse(questionNoCol, questionTextCol, answerTypeCol, userAnswerCol, headerRowIndex)
   
   if (parsedQuestions.length === 0 && questionNoCol !== 2) {
-    // Try columns C,D,E,F (indices 2,3,4,5) as fallback
     parsedQuestions = tryParse(2, 3, 4, 5, 0)
   }
   
@@ -411,17 +398,16 @@ export function getSectionName(sectionId: string): string {
 export function assessQuestion(question: SpreadsheetQuestion): FlaggedIssue | null {
   const { questionNo, questionText, answerType, userAnswer } = question
   
-  // Check if answer is missing
   if (!userAnswer || userAnswer.length < 2) {
     return {
       questionNo,
       question: questionText,
       issue: 'Answer is missing or incomplete',
-      severity: 'high'
+      severity: 'high',
+      userAnswer: userAnswer || ''
     }
   }
   
-  // Check Yes/No questions
   if (answerType.toLowerCase().includes('yes')) {
     const normalizedAnswer = userAnswer.toLowerCase()
     if (!normalizedAnswer.includes('yes') && !normalizedAnswer.includes('no')) {
@@ -429,13 +415,12 @@ export function assessQuestion(question: SpreadsheetQuestion): FlaggedIssue | nu
         questionNo,
         question: questionText,
         issue: 'Answer must be Yes or No',
-        severity: 'medium'
+        severity: 'medium',
+        userAnswer
       }
     }
     
-    // Flag certain "No" answers as potential issues
     if (normalizedAnswer.includes('no')) {
-      // Questions where "No" might indicate non-compliance
       if (questionText.includes('firewall') || 
           questionText.includes('anti-malware') ||
           questionText.includes('security updates')) {
@@ -443,19 +428,20 @@ export function assessQuestion(question: SpreadsheetQuestion): FlaggedIssue | nu
           questionNo,
           question: questionText,
           issue: 'This "No" answer may indicate non-compliance',
-          severity: 'high'
+          severity: 'high',
+          userAnswer
         }
       }
     }
   }
   
-  // Check for very short answers on open questions
   if (answerType.toLowerCase().includes('notes') && userAnswer.length < 10) {
     return {
       questionNo,
       question: questionText,
       issue: 'Answer is too brief, more detail required',
-      severity: 'medium'
+      severity: 'medium',
+      userAnswer
     }
   }
   
@@ -468,8 +454,8 @@ export function assessQuestion(question: SpreadsheetQuestion): FlaggedIssue | nu
 export function generateAssessment(questions: SpreadsheetQuestion[]): AssessmentResult {
   const sectionResults: Map<string, SectionResult> = new Map()
   const flaggedIssues: FlaggedIssue[] = []
+  const passedQuestions: PassedQuestion[] = []
   
-  // Group questions by section
   for (const question of questions) {
     const sectionId = getSectionIdFromQuestionNo(question.questionNo)
     
@@ -487,29 +473,31 @@ export function generateAssessment(questions: SpreadsheetQuestion[]): Assessment
     const section = sectionResults.get(sectionId)!
     section.totalQuestions++
     
-    // Assess the question
     const issue = assessQuestion(question)
     if (issue) {
       flaggedIssues.push(issue)
       section.issues.push(`${issue.questionNo}: ${issue.issue}`)
     } else {
+      passedQuestions.push({
+        questionNo: question.questionNo,
+        question: question.questionText,
+        userAnswer: question.userAnswer,
+        answerType: question.answerType
+      })
       section.answeredQuestions++
     }
     
-    // Calculate section score
     section.score = section.totalQuestions > 0 
       ? (section.answeredQuestions / section.totalQuestions) * 100 
       : 0
   }
   
-  // Calculate overall metrics
   const sections = Array.from(sectionResults.values())
   const totalQuestions = questions.length
   const answeredQuestions = questions.filter(q => q.userAnswer && q.userAnswer.length >= 2).length
   const overallScore = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0
   const completeness = overallScore
   
-  // Generate summary
   const highIssues = flaggedIssues.filter(i => i.severity === 'high').length
   const mediumIssues = flaggedIssues.filter(i => i.severity === 'medium').length
   
@@ -535,6 +523,7 @@ export function generateAssessment(questions: SpreadsheetQuestion[]): Assessment
     overallScore,
     sectionResults: sections,
     flaggedIssues,
+    passedQuestions,
     completeness,
     summary
   }
@@ -548,7 +537,7 @@ export function saveAssessmentResult(result: AssessmentResult): void {
     localStorage.setItem('spreadsheet_assessment_result', JSON.stringify(result))
     localStorage.setItem('spreadsheet_assessment_timestamp', new Date().toISOString())
   } catch (error) {
-    console.error('[v0] Failed to save assessment result:', error)
+    console.error('Failed to save assessment result:', error)
   }
 }
 
@@ -567,7 +556,7 @@ export function getStoredAssessmentResult(): { result: AssessmentResult; timesta
       }
     }
   } catch (error) {
-    console.error('[v0] Failed to retrieve assessment result:', error)
+    console.error('Failed to retrieve assessment result:', error)
   }
   
   return null
@@ -581,7 +570,7 @@ export function clearAssessmentResult(): void {
     localStorage.removeItem('spreadsheet_assessment_result')
     localStorage.removeItem('spreadsheet_assessment_timestamp')
   } catch (error) {
-    console.error('[v0] Failed to clear assessment result:', error)
+    console.error('Failed to clear assessment result:', error)
   }
 }
 
@@ -597,6 +586,5 @@ function extractQuestionNumber(text: string): string {
     return match[0]
   }
   
-  // If no letter prefix found, return cleaned text (might be numeric only like "1.1")
   return cleaned
 }

@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react'
 import { AssessmentResult } from "@/lib/spreadsheet-assessment"
 import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Link from "next/link"
 
 interface AssessmentResultsDisplayProps {
@@ -14,7 +15,7 @@ interface AssessmentResultsDisplayProps {
 }
 
 export function AssessmentResultsDisplay({ result, timestamp }: AssessmentResultsDisplayProps) {
-  const { overallScore, sectionResults, flaggedIssues, summary } = result
+  const { overallScore, sectionResults, flaggedIssues, passedQuestions, summary } = result
 
   const highIssues = flaggedIssues.filter(i => i.severity === 'high')
   const mediumIssues = flaggedIssues.filter(i => i.severity === 'medium')
@@ -47,6 +48,42 @@ export function AssessmentResultsDisplay({ result, timestamp }: AssessmentResult
         </CardContent>
       </Card>
 
+      {passedQuestions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Passed Questions ({passedQuestions.length})</CardTitle>
+            <CardDescription>Questions with acceptable answers</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="border border-green-200 rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-green-50">
+                    <TableHead className="font-semibold text-green-900">Question</TableHead>
+                    <TableHead className="font-semibold text-green-900">Response</TableHead>
+                    <TableHead className="font-semibold text-green-900">Feedback</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {passedQuestions.map((question, index) => (
+                    <TableRow key={index} className="bg-green-50/30">
+                      <TableCell className="font-medium">
+                        <span className="text-green-700">{question.questionNo}:</span> {question.question}
+                      </TableCell>
+                      <TableCell className="text-gray-700">{question.userAnswer}</TableCell>
+                      <TableCell className="text-green-600 flex items-center gap-1">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Acceptable answer
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Issues Summary */}
       {flaggedIssues.length > 0 && (
         <Card>
@@ -61,12 +98,30 @@ export function AssessmentResultsDisplay({ result, timestamp }: AssessmentResult
                   <AlertCircle className="h-5 w-5" />
                   <h3 className="font-medium">High Severity ({highIssues.length})</h3>
                 </div>
-                {highIssues.map((issue, index) => (
-                  <Alert key={index} variant="destructive">
-                    <AlertTitle className="text-sm">{issue.questionNo}: {issue.question.substring(0, 100)}...</AlertTitle>
-                    <AlertDescription className="text-sm">{issue.issue}</AlertDescription>
-                  </Alert>
-                ))}
+                <div className="border border-red-200 rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-red-50">
+                        <TableHead className="font-semibold text-red-900">Question</TableHead>
+                        <TableHead className="font-semibold text-red-900">Response</TableHead>
+                        <TableHead className="font-semibold text-red-900">Feedback</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {highIssues.map((issue, index) => (
+                        <TableRow key={index} className="bg-red-50/50">
+                          <TableCell className="font-medium">
+                            <span className="text-red-700">{issue.questionNo}:</span> {issue.question}
+                          </TableCell>
+                          <TableCell className="text-gray-700">
+                            {issue.userAnswer || <span className="text-red-400 italic">No answer provided</span>}
+                          </TableCell>
+                          <TableCell className="text-red-700">{issue.issue}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
             
@@ -76,12 +131,30 @@ export function AssessmentResultsDisplay({ result, timestamp }: AssessmentResult
                   <AlertTriangle className="h-5 w-5" />
                   <h3 className="font-medium">Medium Severity ({mediumIssues.length})</h3>
                 </div>
-                {mediumIssues.map((issue, index) => (
-                  <Alert key={index} className="border-yellow-300 bg-yellow-50">
-                    <AlertTitle className="text-sm">{issue.questionNo}: {issue.question.substring(0, 100)}...</AlertTitle>
-                    <AlertDescription className="text-sm">{issue.issue}</AlertDescription>
-                  </Alert>
-                ))}
+                <div className="border border-yellow-200 rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-yellow-50">
+                        <TableHead className="font-semibold text-yellow-900">Question</TableHead>
+                        <TableHead className="font-semibold text-yellow-900">Response</TableHead>
+                        <TableHead className="font-semibold text-yellow-900">Feedback</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {mediumIssues.map((issue, index) => (
+                        <TableRow key={index} className="bg-yellow-50/50">
+                          <TableCell className="font-medium">
+                            <span className="text-yellow-700">{issue.questionNo}:</span> {issue.question}
+                          </TableCell>
+                          <TableCell className="text-gray-700">
+                            {issue.userAnswer || <span className="text-yellow-400 italic">No answer provided</span>}
+                          </TableCell>
+                          <TableCell className="text-yellow-700">{issue.issue}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
             
@@ -91,12 +164,30 @@ export function AssessmentResultsDisplay({ result, timestamp }: AssessmentResult
                   <AlertCircle className="h-5 w-5" />
                   <h3 className="font-medium">Low Severity ({lowIssues.length})</h3>
                 </div>
-                {lowIssues.map((issue, index) => (
-                  <Alert key={index} className="border-blue-300 bg-blue-50">
-                    <AlertTitle className="text-sm">{issue.questionNo}: {issue.question.substring(0, 100)}...</AlertTitle>
-                    <AlertDescription className="text-sm">{issue.issue}</AlertDescription>
-                  </Alert>
-                ))}
+                <div className="border border-blue-200 rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-blue-50">
+                        <TableHead className="font-semibold text-blue-900">Question</TableHead>
+                        <TableHead className="font-semibold text-blue-900">Response</TableHead>
+                        <TableHead className="font-semibold text-blue-900">Feedback</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lowIssues.map((issue, index) => (
+                        <TableRow key={index} className="bg-blue-50/50">
+                          <TableCell className="font-medium">
+                            <span className="text-blue-700">{issue.questionNo}:</span> {issue.question}
+                          </TableCell>
+                          <TableCell className="text-gray-700">
+                            {issue.userAnswer || <span className="text-blue-400 italic">No answer provided</span>}
+                          </TableCell>
+                          <TableCell className="text-blue-700">{issue.issue}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
           </CardContent>
