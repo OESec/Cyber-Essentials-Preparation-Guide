@@ -69,7 +69,7 @@ export const sections: Section[] = [
     icon: "clock",
   },
   {
-    id: "user-access",
+    id: "access-control",
     title: "User Access Control",
     description: "Manage user accounts and access privileges",
     icon: "user",
@@ -1860,7 +1860,7 @@ export function getQuestionsBySection(sectionId: string): Question[] {
       return secureConfigQuestions
     case "security-updates":
       return securityUpdateQuestions
-    case "user-access":
+    case "access-control":
       return userAccessQuestions
     case "malware-protection":
       return malwareProtectionQuestions

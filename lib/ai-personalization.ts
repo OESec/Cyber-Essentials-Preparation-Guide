@@ -199,3 +199,9 @@ function generateTipsForSection(sectionId: string, profile: OrganizationProfile)
 
   return tips.slice(0, 3) // Return top 3 tips
 }
+
+export function clearOrganizationProfile(): void {
+  if (typeof window === "undefined") return
+  localStorage.removeItem("cyberEssentialsProfile")
+  localStorage.setItem("cyberEssentialsProfile", JSON.stringify({}))
+}
