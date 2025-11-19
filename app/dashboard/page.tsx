@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
-import { ArrowLeft, ArrowRight, Clock, FileText, Lock, Settings, Shield, Smartphone, User } from "lucide-react"
+import { ArrowLeft, ArrowRight, Clock, FileText, Lock, Settings, Shield, Smartphone, User, Upload } from 'lucide-react'
 import { sections, getQuestionsBySection } from "@/lib/data"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { ProgressWithMilestones } from "@/components/progress-with-milestones"
@@ -265,6 +265,8 @@ export default function Dashboard() {
         return <Smartphone className="h-6 w-6" />
       case "lock":
         return <Lock className="h-6 w-6" />
+      case "upload":
+        return <Upload className="h-6 w-6" />
       default:
         return <FileText className="h-6 w-6" />
     }
@@ -404,10 +406,30 @@ export default function Dashboard() {
             </Card>
           </Link>
         ))}
+        
+        <Link href="/upload-assessment" key="upload-assessment">
+          <Card className="h-full cursor-pointer hover:shadow-md transition-shadow border-dashed border-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg font-medium">Upload Assessment</CardTitle>
+              <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
+                <Upload className="h-6 w-6 text-purple-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="mb-2">
+                Upload your completed spreadsheet for automated assessment and progress analysis
+              </CardDescription>
+              <div className="mt-4 flex items-center text-sm text-purple-600">
+                Upload Now <ArrowRight className="ml-1 h-4 w-4" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        
         <Link href="/smart-documentation" key="smart-documentation">
           <Card className="h-full cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-medium">Smart Documentation</CardTitle>
+              <CardTitle className="text-lg font-medium">Smart Documentation (In development)</CardTitle>
               <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
                 <FileText className="h-6 w-6" />
               </div>
