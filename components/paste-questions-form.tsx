@@ -106,7 +106,10 @@ A1.2	What type of organisation are you?	Multiple choice	Limited Company"
       </div>
 
       {assessmentResult && (
-        <AssessmentResultsDisplay result={assessmentResult} />
+        <AssessmentResultsDisplay 
+          result={assessmentResult}
+          source="paste"
+        />
       )}
     </div>
   )

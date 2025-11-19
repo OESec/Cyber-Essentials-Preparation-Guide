@@ -11,10 +11,11 @@ import Link from "next/link"
 
 interface AssessmentResultsDisplayProps {
   result: AssessmentResult
-  timestamp: string
+  timestamp?: string
+  source?: 'upload' | 'paste'
 }
 
-export function AssessmentResultsDisplay({ result, timestamp }: AssessmentResultsDisplayProps) {
+export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' }: AssessmentResultsDisplayProps) {
   const { overallScore, sectionResults, flaggedIssues, passedQuestions, summary } = result
 
   const highIssues = flaggedIssues.filter(i => i.severity === 'high')
@@ -27,9 +28,11 @@ export function AssessmentResultsDisplay({ result, timestamp }: AssessmentResult
       <Card>
         <CardHeader>
           <CardTitle>Assessment Results</CardTitle>
-          <CardDescription>
-            Processed on {new Date(timestamp).toLocaleDateString()} at {new Date(timestamp).toLocaleTimeString()}
-          </CardDescription>
+          {timestamp && (
+            <CardDescription>
+              Processed on {new Date(timestamp).toLocaleDateString()} at {new Date(timestamp).toLocaleTimeString()}
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -224,48 +227,49 @@ export function AssessmentResultsDisplay({ result, timestamp }: AssessmentResult
         </CardContent>
       </Card>
 
-      {/* Next Steps */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Next Steps</CardTitle>
-          <CardDescription>Recommended actions based on your assessment</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {overallScore < 100 && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Continue Your Assessment</AlertTitle>
-              <AlertDescription>
-                Review the flagged issues and complete any missing answers in your spreadsheet.
-                Once updated, you can upload it again for a new assessment.
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          {overallScore >= 90 && (
-            <Alert className="border-green-300 bg-green-50">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-900">Nearly Ready for Submission</AlertTitle>
-              <AlertDescription className="text-green-800">
-                Your assessment is looking great! Address any remaining issues and you'll be ready to submit for Cyber Essentials certification.
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          <div className="flex gap-3">
-            <Link href="/upload-assessment">
-              <Button variant="outline">
-                Upload New Version
-              </Button>
-            </Link>
-            <Link href="/dashboard">
-              <Button>
-                Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+      {source === 'upload' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Next Steps</CardTitle>
+            <CardDescription>Recommended actions based on your assessment</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {overallScore < 100 && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Continue Your Assessment</AlertTitle>
+                <AlertDescription>
+                  Review the flagged issues and complete any missing answers in your spreadsheet.
+                  Once updated, you can upload it again for a new assessment.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {overallScore >= 90 && (
+              <Alert className="border-green-300 bg-green-50">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertTitle className="text-green-900">Nearly Ready for Submission</AlertTitle>
+                <AlertDescription className="text-green-800">
+                  Your assessment is looking great! Address any remaining issues and you'll be ready to submit for Cyber Essentials certification.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="flex gap-3">
+              <Link href="/upload-assessment">
+                <Button variant="outline">
+                  Upload New Version
+                </Button>
+              </Link>
+              <Link href="/dashboard">
+                <Button>
+                  Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

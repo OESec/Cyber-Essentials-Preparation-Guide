@@ -70,7 +70,11 @@ export default function AssessmentResultsPage() {
         </p>
       </div>
 
-      <AssessmentResultsDisplay result={result.result} timestamp={result.timestamp} />
+      <AssessmentResultsDisplay 
+        result={result.result} 
+        timestamp={result.timestamp}
+        source="upload"
+      />
     </div>
   )
 }
