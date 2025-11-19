@@ -361,6 +361,7 @@ export function parseSpreadsheet(data: any[][], userAnswerColOverride?: number):
  * - Pipe-separated: A1.1 | Question text | Answer type | User answer
  * - Simple: A1.1: Question? Answer: text
  * - Multi-line: Question on one line, "Answer:" on next line
+ * - Inline: A1.1: Question text more text.Answer: answer text
  */
 export function parseTextQuestions(text: string): SpreadsheetQuestion[] {
   const questions: SpreadsheetQuestion[] = []
@@ -380,9 +381,19 @@ export function parseTextQuestions(text: string): SpreadsheetQuestion[] {
       
       if (parts.length >= 2) {
         questionNo = extractQuestionNumber(parts[0])
-        questionText = parts[1] || ''
-        answerType = parts[2] || 'Notes'
-        userAnswer = parts[3] || ''
+        
+        // Join all remaining parts and check for "Answer:" anywhere
+        const remainingText = parts.slice(1).join(' ').trim()
+        const answerSplit = remainingText.match(/^(.+?)[\.\s]*(?:Answer:|Response:)\s*(.+)$/i)
+        
+        if (answerSplit) {
+          questionText = answerSplit[1].trim()
+          userAnswer = answerSplit[2].trim()
+        } else {
+          questionText = parts[1] || ''
+          answerType = parts[2] || 'Notes'
+          userAnswer = parts[3] || ''
+        }
       }
     }
     // Try pipe-separated format
@@ -406,14 +417,15 @@ export function parseTextQuestions(text: string): SpreadsheetQuestion[] {
         questionNo = extractedNo.match(/^[A-Z]/) ? extractedNo : extractedNo
         const remaining = questionMatch[2].trim()
         
-        // Check if answer is on the same line
-        const answerSplit = remaining.match(/^(.+?)(?:\s+Answer:\s+|\s+Response:\s+)(.+)$/i)
+        // Check if answer is anywhere in the remaining text
+        const answerSplit = remaining.match(/^(.+?)[\.\s]*(?:Answer:|Response:)\s*(.+)$/i)
         if (answerSplit) {
           questionText = answerSplit[1].trim()
           userAnswer = answerSplit[2].trim()
         } else {
           questionText = remaining
           
+          // Check next line for answer
           if (i + 1 < lines.length) {
             const nextLine = lines[i + 1]
             const answerMatch = nextLine.match(/^(?:Answer:|Response:)\s*(.+)$/i)
@@ -434,6 +446,7 @@ export function parseTextQuestions(text: string): SpreadsheetQuestion[] {
         questionNo = extractedNo.match(/^[A-Z]/) ? extractedNo : extractedNo
         questionText = questionMatch[2].trim()
         
+        // Check next line for answer
         if (i + 1 < lines.length) {
           const nextLine = lines[i + 1]
           const answerMatch = nextLine.match(/^(?:Answer:|Response:)\s*(.+)$/i)
