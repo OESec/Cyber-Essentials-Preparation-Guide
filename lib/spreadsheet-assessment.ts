@@ -355,6 +355,118 @@ export function parseSpreadsheet(data: any[][], userAnswerColOverride?: number):
 }
 
 /**
+ * Parses pasted text into questions - supports multiple formats
+ * Formats supported:
+ * - Tab-separated (from Excel/Google Sheets copy-paste)
+ * - Pipe-separated: A1.1 | Question text | Answer type | User answer
+ * - Simple: A1.1: Question? Answer: text
+ * - Multi-line: Question on one line, "Answer:" on next line
+ */
+export function parseTextQuestions(text: string): SpreadsheetQuestion[] {
+  const questions: SpreadsheetQuestion[] = []
+  const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+    let questionNo = ''
+    let questionText = ''
+    let answerType = 'Notes'
+    let userAnswer = ''
+
+    // Try tab-separated format (Excel/Google Sheets copy-paste)
+    if (line.includes('\t')) {
+      const parts = line.split('\t').map(p => p.trim())
+      
+      if (parts.length >= 2) {
+        questionNo = extractQuestionNumber(parts[0])
+        questionText = parts[1] || ''
+        answerType = parts[2] || 'Notes'
+        userAnswer = parts[3] || ''
+      }
+    }
+    // Try pipe-separated format
+    else if (line.includes('|')) {
+      const parts = line.split('|').map(p => p.trim())
+      
+      if (parts.length >= 2) {
+        questionNo = extractQuestionNumber(parts[0])
+        questionText = parts[1] || ''
+        answerType = parts[2] || 'Notes'
+        userAnswer = parts[3] || ''
+      }
+    }
+    // Try simple format: "A1.1: Question? Answer: text" (single line)
+    else if (line.includes(':')) {
+      // First try to extract question number and text
+      const questionMatch = line.match(/^([A-Z]?\d+(?:\.\d+)*)[:\s]+(.+)$/i)
+      
+      if (questionMatch) {
+        const extractedNo = questionMatch[1].trim()
+        questionNo = extractedNo.match(/^[A-Z]/) ? extractedNo : extractedNo
+        const remaining = questionMatch[2].trim()
+        
+        // Check if answer is on the same line
+        const answerSplit = remaining.match(/^(.+?)(?:\s+Answer:\s+|\s+Response:\s+)(.+)$/i)
+        if (answerSplit) {
+          questionText = answerSplit[1].trim()
+          userAnswer = answerSplit[2].trim()
+        } else {
+          questionText = remaining
+          
+          if (i + 1 < lines.length) {
+            const nextLine = lines[i + 1]
+            const answerMatch = nextLine.match(/^(?:Answer:|Response:)\s*(.+)$/i)
+            if (answerMatch) {
+              userAnswer = answerMatch[1].trim()
+              i++ // Skip the next line since we've consumed it
+            }
+          }
+        }
+      }
+    }
+    // Try format without colon: "A1.8 Question text here"
+    else {
+      const questionMatch = line.match(/^([A-Z]?\d+(?:\.\d+)*)\s+(.+)$/i)
+      
+      if (questionMatch) {
+        const extractedNo = questionMatch[1].trim()
+        questionNo = extractedNo.match(/^[A-Z]/) ? extractedNo : extractedNo
+        questionText = questionMatch[2].trim()
+        
+        if (i + 1 < lines.length) {
+          const nextLine = lines[i + 1]
+          const answerMatch = nextLine.match(/^(?:Answer:|Response:)\s*(.+)$/i)
+          if (answerMatch) {
+            userAnswer = answerMatch[1].trim()
+            i++ // Skip the next line since we've consumed it
+          }
+        }
+      }
+    }
+
+    // Validate and add if we have at least question number and text
+    if (questionNo && questionText && questionText.length >= 10) {
+      const strictPattern = /^[A-Z]\d+(\.\d+)*$/
+      const numericPattern = /^\d+(\.\d+)+$/
+      
+      if (strictPattern.test(questionNo) || numericPattern.test(questionNo)) {
+        questions.push({
+          questionNo,
+          questionText,
+          answerType,
+          userAnswer
+        })
+      }
+    }
+
+    i++
+  }
+
+  return questions
+}
+
+/**
  * Maps question numbers to section IDs based on Cyber Essentials structure
  */
 export function getSectionIdFromQuestionNo(questionNo: string): string {
