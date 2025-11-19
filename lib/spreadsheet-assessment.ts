@@ -8,6 +8,16 @@ export interface SpreadsheetQuestion {
   userAnswer: string
 }
 
+export interface ColumnDetectionResult {
+  questionNoCol: number
+  questionTextCol: number
+  answerTypeCol: number
+  userAnswerCol: number
+  headerRowIndex: number
+  detectedHeaders: string[]
+  answerColumnDetected: boolean
+}
+
 export interface AssessmentResult {
   overallScore: number
   sectionResults: SectionResult[]
@@ -38,9 +48,12 @@ export interface FlaggedIssue {
 export function isQuestionRow(row: any[]): boolean {
   // Check if first cell contains a question number pattern (e.g., A1.1, A2.5)
   const firstCell = String(row[0] || '').trim()
-  const questionNoPattern = /^[A-Z]\d+(\.\d+)*$/
+  const extractedQuestionNo = extractQuestionNumber(firstCell)
   
-  if (!questionNoPattern.test(firstCell)) {
+  const strictPattern = /^[A-Z]\d+(\.\d+)*$/
+  const numericPattern = /^\d+(\.\d+)+$/
+  
+  if (!strictPattern.test(extractedQuestionNo) && !numericPattern.test(extractedQuestionNo)) {
     return false
   }
   
@@ -60,63 +73,298 @@ export function isQuestionRow(row: any[]): boolean {
 }
 
 /**
- * Parses a spreadsheet and extracts questions with user answers
+ * Checks if a row is empty or contains only whitespace/formatting
  */
-export function parseSpreadsheet(data: any[][]): SpreadsheetQuestion[] {
-  const questions: SpreadsheetQuestion[] = []
+function isEmptyRow(row: any[]): boolean {
+  return row.every(cell => {
+    const cellStr = String(cell || '').trim()
+    return cellStr === '' || cellStr === '\n' || cellStr === '\r\n'
+  })
+}
+
+/**
+ * Checks if a row appears to be a title or header row (not data)
+ */
+function isTitleRow(row: any[]): boolean {
+  // Check if row has merged cells pattern (first cell has content, rest are mostly empty)
+  const firstCell = String(row[0] || '').trim()
+  const restEmpty = row.slice(1).every(cell => String(cell || '').trim() === '')
   
-  // Find header row to determine column positions
+  if (firstCell && firstCell.length > 20 && restEmpty) {
+    return true
+  }
+  
+  // Check for typical title patterns
+  const titlePatterns = [
+    /cyber essentials/i,
+    /question set/i,
+    /assessment/i,
+    /questionnaire/i
+  ]
+  
+  return titlePatterns.some(pattern => firstCell.match(pattern))
+}
+
+/**
+ * Finds the actual data start row, skipping empty rows, titles, and merged cells
+ */
+function findDataStartRow(data: any[][]): number {
+  for (let i = 0; i < Math.min(50, data.length); i++) {
+    const row = data[i]
+    
+    // Skip empty rows
+    if (isEmptyRow(row)) {
+      continue
+    }
+    
+    // Skip title rows
+    if (isTitleRow(row)) {
+      continue
+    }
+    
+    // Check if this row has multiple populated cells (likely a data or header row)
+    const populatedCells = row.filter(cell => String(cell || '').trim() !== '').length
+    if (populatedCells >= 3) {
+      return i
+    }
+  }
+  
+  return 0
+}
+
+export function detectAnswerColumn(data: any[][], startRow: number = 0, endRow: number = 50): number {
+  const answerColumnNames = [
+    'answer', 
+    'my answer', 
+    'response', 
+    'user answer', 
+    'your answer',
+    'notes',
+    'my response',
+    'user response',
+    'responses' // Added "responses" as seen in user's spreadsheet
+  ]
+  
+  for (let i = startRow; i < Math.min(endRow, data.length); i++) {
+    const row = data[i]
+    for (let j = 0; j < row.length; j++) {
+      const cell = String(row[j] || '').toLowerCase().trim()
+      // More flexible matching - check if any answer column name is contained in the cell
+      if (answerColumnNames.some(name => cell.includes(name))) {
+        console.log(`[v0] Found answer column "${cell}" at column ${j}, row ${i}`)
+        return j
+      }
+    }
+  }
+  
+  console.log('[v0] No answer column found automatically')
+  return -1
+}
+
+export function getColumnHeaders(data: any[][], headerRowIndex: number = 0): string[] {
+  if (data.length === 0 || headerRowIndex >= data.length) {
+    return []
+  }
+  
+  const headers: string[] = []
+  const row = data[headerRowIndex]
+  
+  for (let i = 0; i < row.length; i++) {
+    const cell = String(row[i] || '').trim()
+    if (cell) {
+      headers.push(cell)
+    } else {
+      // Use column letter if header is empty
+      headers.push(getColumnLetter(i))
+    }
+  }
+  
+  return headers
+}
+
+function getColumnLetter(index: number): string {
+  let letter = ''
+  let num = index
+  
+  while (num >= 0) {
+    letter = String.fromCharCode((num % 26) + 65) + letter
+    num = Math.floor(num / 26) - 1
+  }
+  
+  return letter
+}
+
+/**
+ * Detects column positions in the spreadsheet
+ */
+export function detectColumns(data: any[][]): ColumnDetectionResult {
+  const dataStartRow = findDataStartRow(data)
+  console.log(`[v0] Data appears to start at row ${dataStartRow}`)
+  
   let headerRowIndex = -1
   let questionNoCol = -1
   let questionTextCol = -1
   let answerTypeCol = -1
   let userAnswerCol = -1
+  let detectedHeaders: string[] = []
   
-  for (let i = 0; i < Math.min(20, data.length); i++) {
+  for (let i = dataStartRow; i < Math.min(dataStartRow + 50, data.length); i++) {
     const row = data[i]
-    for (let j = 0; j < row.length; j++) {
-      const cell = String(row[j] || '').toLowerCase().trim()
-      if (cell.includes('no.') || cell === 'no') questionNoCol = j
-      if (cell.includes('question')) questionTextCol = j
-      if (cell.includes('answer type') || cell.includes('type')) answerTypeCol = j
-      if (cell.includes('notes') || cell.includes('your answer')) userAnswerCol = j
+    
+    // Skip empty rows
+    if (isEmptyRow(row)) {
+      continue
     }
     
+    for (let j = 0; j < row.length; j++) {
+      const cell = String(row[j] || '').toLowerCase().trim()
+      
+      // Match "No.", "No", "Q.No", "Question No", "Q No"
+      if ((cell.includes('no.') || cell === 'no' || cell.includes('q.no') || 
+           cell.includes('question no') || cell.includes('q no')) && questionNoCol === -1) {
+        questionNoCol = j
+        console.log(`[v0] Found question number column at ${j}: "${cell}"`)
+      }
+      
+      // Match "Question" but not "Question No" or "Question Type"
+      if (cell.includes('question') && !cell.includes('no') && 
+          !cell.includes('type') && questionTextCol === -1) {
+        questionTextCol = j
+        console.log(`[v0] Found question text column at ${j}: "${cell}"`)
+      }
+      
+      // Match "Answer Type", "Type", "Response Type"
+      if ((cell.includes('answer type') || cell.includes('response type') || 
+           (cell === 'type' && answerTypeCol === -1))) {
+        answerTypeCol = j
+        console.log(`[v0] Found answer type column at ${j}: "${cell}"`)
+      }
+    }
+    
+    // If we found the key columns, this is the header row
     if (questionNoCol >= 0 && questionTextCol >= 0) {
       headerRowIndex = i
+      detectedHeaders = getColumnHeaders(data, i)
+      console.log(`[v0] Header row detected at row ${i}`)
+      console.log(`[v0] Detected headers:`, detectedHeaders)
       break
     }
   }
   
-  // If we can't find headers, try default positions
-  if (headerRowIndex === -1) {
-    questionNoCol = 2 // Column C
-    questionTextCol = 3 // Column D
-    answerTypeCol = 4 // Column E (not always present)
-    userAnswerCol = 5 // Column F or G
-    headerRowIndex = 0
+  if (headerRowIndex >= 0) {
+    userAnswerCol = detectAnswerColumn(data, headerRowIndex, headerRowIndex + 1)
+  } else {
+    userAnswerCol = detectAnswerColumn(data, dataStartRow, dataStartRow + 50)
   }
   
-  // Parse questions
-  for (let i = headerRowIndex + 1; i < data.length; i++) {
-    const row = data[i]
+  // If no header found, try pattern-based detection
+  if (headerRowIndex === -1) {
+    console.log('[v0] No headers found, attempting pattern-based detection')
+    const questionPattern = /[A-Z]\d+(?:\.\d+)*/
     
-    if (isQuestionRow(row)) {
-      const questionNo = String(row[questionNoCol] || '').trim()
-      const questionText = String(row[questionTextCol] || '').trim()
-      const answerType = String(row[answerTypeCol] || 'Notes').trim()
-      const userAnswer = String(row[userAnswerCol] || '').trim()
+    for (let j = 0; j < Math.min(15, data[dataStartRow]?.length || 0); j++) {
+      let patternMatches = 0
+      for (let i = dataStartRow; i < Math.min(dataStartRow + 50, data.length); i++) {
+        const cell = String(data[i][j] || '').trim()
+        if (questionPattern.test(cell) || extractQuestionNumber(cell).match(questionPattern)) {
+          patternMatches++
+        }
+      }
       
-      questions.push({
-        questionNo,
-        questionText,
-        answerType,
-        userAnswer
-      })
+      if (patternMatches >= 5) {
+        questionNoCol = j
+        questionTextCol = j + 1
+        answerTypeCol = j + 2
+        headerRowIndex = dataStartRow
+        detectedHeaders = getColumnHeaders(data, dataStartRow)
+        console.log(`[v0] Pattern-based detection: question numbers in column ${j} (${patternMatches} matches)`)
+        break
+      }
     }
   }
   
-  return questions
+  // Last resort fallback
+  if (headerRowIndex === -1) {
+    console.log('[v0] Using fallback column positions')
+    questionNoCol = 0
+    questionTextCol = 1
+    answerTypeCol = 2
+    headerRowIndex = dataStartRow
+    detectedHeaders = getColumnHeaders(data, dataStartRow)
+  }
+  
+  console.log(`[v0] Final column configuration: Q No=${questionNoCol}, Q Text=${questionTextCol}, Answer Type=${answerTypeCol}, User Answer=${userAnswerCol}`)
+  
+  return {
+    questionNoCol,
+    questionTextCol,
+    answerTypeCol,
+    userAnswerCol,
+    headerRowIndex,
+    detectedHeaders,
+    answerColumnDetected: userAnswerCol >= 0
+  }
+}
+
+/**
+ * Parses a spreadsheet and extracts questions with user answers
+ */
+export function parseSpreadsheet(data: any[][], userAnswerColOverride?: number): SpreadsheetQuestion[] {
+  const questions: SpreadsheetQuestion[] = []
+  
+  const columnInfo = detectColumns(data)
+  
+  let { questionNoCol, questionTextCol, answerTypeCol, userAnswerCol, headerRowIndex } = columnInfo
+  
+  if (userAnswerColOverride !== undefined && userAnswerColOverride >= 0) {
+    userAnswerCol = userAnswerColOverride
+  }
+  
+  if (userAnswerCol === -1) {
+    userAnswerCol = answerTypeCol + 1
+  }
+  
+  const tryParse = (qNoCol: number, qTextCol: number, aTypeCol: number, uAnswerCol: number, startRow: number): SpreadsheetQuestion[] => {
+    const parsed: SpreadsheetQuestion[] = []
+    
+    for (let i = startRow + 1; i < data.length; i++) {
+      const row = data[i]
+      
+      const mappedRow = [
+        row[qNoCol],
+        row[qTextCol],
+        row[aTypeCol],
+        row[uAnswerCol]
+      ]
+      
+      if (isQuestionRow(mappedRow)) {
+        const rawQuestionNo = String(row[qNoCol] || '').trim()
+        const questionNo = extractQuestionNumber(rawQuestionNo)
+        const questionText = String(row[qTextCol] || '').trim()
+        const answerType = String(row[aTypeCol] || 'Notes').trim()
+        const userAnswer = String(row[uAnswerCol] || '').trim()
+        
+        parsed.push({
+          questionNo,
+          questionText,
+          answerType,
+          userAnswer
+        })
+      }
+    }
+    
+    return parsed
+  }
+  
+  // Try detected columns
+  let parsedQuestions = tryParse(questionNoCol, questionTextCol, answerTypeCol, userAnswerCol, headerRowIndex)
+  
+  if (parsedQuestions.length === 0 && questionNoCol !== 2) {
+    // Try columns C,D,E,F (indices 2,3,4,5) as fallback
+    parsedQuestions = tryParse(2, 3, 4, 5, 0)
+  }
+  
+  return parsedQuestions
 }
 
 /**
@@ -335,4 +583,20 @@ export function clearAssessmentResult(): void {
   } catch (error) {
     console.error('[v0] Failed to clear assessment result:', error)
   }
+}
+
+/**
+ * Extracts question number from text that may contain extra formatting
+ * Examples: "Question A1.1" → "A1.1", " A2.5 " → "A2.5", "1.1" → "1.1"
+ */
+function extractQuestionNumber(text: string): string {
+  const cleaned = String(text || '').trim()
+  
+  const match = cleaned.match(/[A-Z]\d+(?:\.\d+)*/)
+  if (match) {
+    return match[0]
+  }
+  
+  // If no letter prefix found, return cleaned text (might be numeric only like "1.1")
+  return cleaned
 }

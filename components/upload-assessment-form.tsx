@@ -5,13 +5,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Upload, FileSpreadsheet, AlertCircle } from 'lucide-react'
 import { useToast } from "@/components/ui/use-toast"
-import { parseSpreadsheet, generateAssessment, saveAssessmentResult } from "@/lib/spreadsheet-assessment"
+import { parseSpreadsheet, generateAssessment, saveAssessmentResult, detectColumns, type ColumnDetectionResult } from "@/lib/spreadsheet-assessment"
 import { useRouter } from 'next/navigation'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export function UploadAssessmentForm() {
   const [file, setFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [dragActive, setDragActive] = useState(false)
+  const [spreadsheetData, setSpreadsheetData] = useState<any[][] | null>(null)
+  const [columnInfo, setColumnInfo] = useState<ColumnDetectionResult | null>(null)
+  const [showColumnSelector, setShowColumnSelector] = useState(false)
+  const [selectedAnswerColumn, setSelectedAnswerColumn] = useState<string>("")
   const { toast } = useToast()
   const router = useRouter()
 
@@ -55,6 +66,11 @@ export function UploadAssessmentForm() {
     }
 
     setFile(selectedFile)
+    setSpreadsheetData(null)
+    setColumnInfo(null)
+    setShowColumnSelector(false)
+    setSelectedAnswerColumn("")
+    
     toast({
       title: "File selected",
       description: `${selectedFile.name} is ready to process`
@@ -73,46 +89,29 @@ export function UploadAssessmentForm() {
     setIsProcessing(true)
 
     try {
-      // Read the file
       const arrayBuffer = await file.arrayBuffer()
-      
-      // Dynamically import xlsx library
       const XLSX = await import('xlsx')
-      
-      // Parse the spreadsheet
       const workbook = XLSX.read(arrayBuffer, { type: 'array' })
       const firstSheetName = workbook.SheetNames[0]
       const worksheet = workbook.Sheets[firstSheetName]
-      
-      // Convert to JSON (array of arrays)
       const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' })
+      const detectedColumns = detectColumns(data as any[][])
+      setSpreadsheetData(data as any[][])
+      setColumnInfo(detectedColumns)
       
-      // Parse questions from the spreadsheet
-      const questions = parseSpreadsheet(data as any[][])
-      
-      if (questions.length === 0) {
-        toast({
-          title: "No questions found",
-          description: "Could not find any valid questions in the spreadsheet. Please check the format.",
-          variant: "destructive"
-        })
+      if (!detectedColumns.answerColumnDetected) {
+        setShowColumnSelector(true)
         setIsProcessing(false)
+        
+        toast({
+          title: "Answer column not found",
+          description: "Please select which column contains your answers",
+          variant: "default"
+        })
         return
       }
       
-      // Generate assessment
-      const assessment = generateAssessment(questions)
-      
-      // Save assessment result
-      saveAssessmentResult(assessment)
-      
-      toast({
-        title: "Assessment complete!",
-        description: `Processed ${questions.length} questions from your spreadsheet`
-      })
-      
-      // Navigate to results page
-      router.push('/upload-assessment/results')
+      await completeProcessing(data as any[][])
       
     } catch (error) {
       console.error('[v0] Error processing spreadsheet:', error)
@@ -121,9 +120,66 @@ export function UploadAssessmentForm() {
         description: "Failed to process the spreadsheet. Please ensure it's in the correct format.",
         variant: "destructive"
       })
+      setIsProcessing(false)
+    }
+  }
+
+  const completeProcessing = async (data: any[][], userAnswerColIndex?: number) => {
+    setIsProcessing(true)
+    
+    try {
+      const questions = parseSpreadsheet(data, userAnswerColIndex)
+      
+      if (questions.length === 0) {
+        toast({
+          title: "No questions found",
+          description: `Checked ${data.length} rows. Ensure question numbers follow format like A1.1, A2.5, etc.`,
+          variant: "destructive"
+        })
+        setIsProcessing(false)
+        return
+      }
+      
+      const assessment = generateAssessment(questions)
+      saveAssessmentResult(assessment)
+      
+      toast({
+        title: "Assessment complete!",
+        description: `Processed ${questions.length} questions from your spreadsheet`
+      })
+      
+      router.push('/upload-assessment/results')
+      
+    } catch (error) {
+      console.error('[v0] Error completing assessment:', error)
+      toast({
+        title: "Processing error",
+        description: "Failed to complete the assessment",
+        variant: "destructive"
+      })
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  const handleColumnSelection = async () => {
+    if (!spreadsheetData || !selectedAnswerColumn || !columnInfo) {
+      return
+    }
+    
+    const columnIndex = columnInfo.detectedHeaders.indexOf(selectedAnswerColumn)
+    
+    if (columnIndex === -1) {
+      toast({
+        title: "Invalid selection",
+        description: "Please select a valid column",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    setShowColumnSelector(false)
+    await completeProcessing(spreadsheetData, columnIndex)
   }
 
   return (
@@ -135,7 +191,6 @@ export function UploadAssessmentForm() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Drag and drop area */}
         <div
           className={
             dragActive 
@@ -183,7 +238,39 @@ export function UploadAssessmentForm() {
           </div>
         </div>
 
-        {/* Supported formats */}
+        {showColumnSelector && columnInfo && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm flex-1">
+                <p className="font-medium text-amber-900 mb-2">Which column contains your answers?</p>
+                <p className="text-amber-800 mb-3">
+                  We couldn't automatically find your answer column. Please select it from the list below:
+                </p>
+                <Select value={selectedAnswerColumn} onValueChange={setSelectedAnswerColumn}>
+                  <SelectTrigger className="w-full bg-white">
+                    <SelectValue placeholder="Select answer column..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {columnInfo.detectedHeaders.map((header, index) => (
+                      <SelectItem key={index} value={header}>
+                        {header}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={handleColumnSelection}
+                  disabled={!selectedAnswerColumn || isProcessing}
+                  className="w-full mt-3"
+                >
+                  {isProcessing ? "Processing..." : "Continue with Selected Column"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
@@ -194,15 +281,15 @@ export function UploadAssessmentForm() {
                 <li>• CSV files (.csv)</li>
                 <li>• Must contain question numbers (e.g., A1.1, A2.5)</li>
                 <li>• Must have your answers filled in</li>
+                <li>• Tip: Name your answer column "Answer", "My Answer", or "Response" for automatic detection</li>
               </ul>
             </div>
           </div>
         </div>
 
-        {/* Process button */}
         <Button
           onClick={processSpreadsheet}
-          disabled={!file || isProcessing}
+          disabled={!file || isProcessing || showColumnSelector}
           className="w-full"
           size="lg"
         >
