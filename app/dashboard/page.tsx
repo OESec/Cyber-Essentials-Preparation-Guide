@@ -407,25 +407,6 @@ export default function Dashboard() {
           </Link>
         ))}
         
-        <Link href="/upload-assessment" key="upload-assessment">
-          <Card className="h-full cursor-pointer hover:shadow-md transition-shadow border-dashed border-2">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-medium">Assessment</CardTitle>
-              <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
-                <Upload className="h-6 w-6 text-purple-600" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="mb-2">
-                Upload a spreadsheet or paste questions for automated assessment and progress analysis
-              </CardDescription>
-              <div className="mt-4 flex items-center text-sm text-purple-600">
-                Start Assessment <ArrowRight className="ml-1 h-4 w-4" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        
         <Link href="/smart-documentation" key="smart-documentation">
           <Card className="h-full cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -449,6 +430,25 @@ export default function Dashboard() {
               </div>
               <div className="mt-4 flex items-center text-sm text-blue-600">
                 Access Tools <ArrowRight className="ml-1 h-4 w-4" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        
+        <Link href="/upload-assessment" key="upload-assessment">
+          <Card className="h-full cursor-pointer hover:shadow-md transition-shadow border-dashed border-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg font-medium">Assessment</CardTitle>
+              <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
+                <Upload className="h-6 w-6 text-purple-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="mb-2">
+                Upload a spreadsheet or paste questions for automated assessment and progress analysis
+              </CardDescription>
+              <div className="mt-4 flex items-center text-sm text-purple-600">
+                Start Assessment <ArrowRight className="ml-1 h-4 w-4" />
               </div>
             </CardContent>
           </Card>
