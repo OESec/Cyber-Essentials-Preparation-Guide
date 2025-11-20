@@ -81,7 +81,7 @@ A1.1	What is your organisation's name?	Notes	Acme Corporation
 A1.2	What type of organisation are you?	Multiple choice	Limited Company"
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
-              className="min-h-[300px] font-mono text-sm text-gray-900"
+              className="min-h-[300px] font-mono text-sm text-foreground"
             />
           </div>
 
