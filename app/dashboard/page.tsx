@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
-import { ArrowLeft, ArrowRight, Clock, FileText, Lock, Settings, Shield, Smartphone, User, Upload } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Clock, FileText, Lock, Settings, Shield, Smartphone, User } from "lucide-react"
 import { sections, getQuestionsBySection } from "@/lib/data"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { ProgressWithMilestones } from "@/components/progress-with-milestones"
@@ -28,6 +28,7 @@ import { OrganizationProfileSetup } from "@/components/organization-profile-setu
 import { PersonalizedRecommendations } from "@/components/personalized-recommendations"
 import { MilestoneCelebration } from "@/components/milestone-celebration"
 import { isPersonalizationSetup, initializePersonalization } from "@/lib/ai-personalization"
+import { ChooseYourPath } from "@/components/choose-your-path"
 
 export default function Dashboard() {
   const { toast } = useToast()
@@ -105,7 +106,6 @@ export default function Dashboard() {
     }
   }, [progress, setProgress])
 
-  // Add this useEffect for personalization setup
   useEffect(() => {
     // Initialize personalization
     initializePersonalization()
@@ -176,7 +176,6 @@ export default function Dashboard() {
 
   const overallProgress = calculateOverallProgress()
 
-  // Enhanced milestone achievement check with celebration
   useEffect(() => {
     const currentProgress = calculateOverallProgress()
     const milestones = [0, 25, 50, 75, 100]
@@ -265,14 +264,11 @@ export default function Dashboard() {
         return <Smartphone className="h-6 w-6" />
       case "lock":
         return <Lock className="h-6 w-6" />
-      case "upload":
-        return <Upload className="h-6 w-6" />
       default:
         return <FileText className="h-6 w-6" />
     }
   }
 
-  // Add this handler for profile setup completion
   const handleProfileSetupComplete = () => {
     setShowProfileSetup(false)
     setIsPersonalized(true)
@@ -296,7 +292,7 @@ export default function Dashboard() {
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-2">
           <Link href="/">
-            <Button variant="outline" size="sm" className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="flex items-center gap-1 bg-transparent">
               <ArrowLeft className="h-4 w-4" /> Back to Home
             </Button>
           </Link>
@@ -313,7 +309,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <Card className="mb-8">
+      <ChooseYourPath />
+
+      <Card className="mb-8" data-section="overall-progress">
         <CardHeader>
           <CardTitle>Overall Progress</CardTitle>
           <CardDescription>Your journey to Cyber Essentials certification</CardDescription>
@@ -378,6 +376,13 @@ export default function Dashboard() {
         </div>
       )}
 
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold mb-2">Section-by-Section Progress</h2>
+        <p className="text-muted-foreground">
+          Work through each section at your own pace with detailed guidance and platform-specific instructions.
+        </p>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {sections.map((section) => (
           <Link href={`/section/${section.id}`} key={section.id}>
@@ -406,7 +411,7 @@ export default function Dashboard() {
             </Card>
           </Link>
         ))}
-        
+
         <Link href="/smart-documentation" key="smart-documentation">
           <Card className="h-full cursor-pointer hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -430,25 +435,6 @@ export default function Dashboard() {
               </div>
               <div className="mt-4 flex items-center text-sm text-blue-600">
                 Access Tools <ArrowRight className="ml-1 h-4 w-4" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        
-        <Link href="/upload-assessment" key="upload-assessment">
-          <Card className="h-full cursor-pointer hover:shadow-md transition-shadow border-dashed border-2">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-medium">Assessment</CardTitle>
-              <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
-                <Upload className="h-6 w-6 text-purple-600" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="mb-2">
-                Upload a spreadsheet or paste questions for automated assessment and progress analysis
-              </CardDescription>
-              <div className="mt-4 flex items-center text-sm text-purple-600">
-                Start Assessment <ArrowRight className="ml-1 h-4 w-4" />
               </div>
             </CardContent>
           </Card>
