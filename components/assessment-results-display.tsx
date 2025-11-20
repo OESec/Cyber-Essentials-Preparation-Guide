@@ -3,8 +3,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react'
-import { AssessmentResult } from "@/lib/spreadsheet-assessment"
+import { AlertCircle, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react"
+import type { AssessmentResult } from "@/lib/spreadsheet-assessment"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Link from "next/link"
@@ -12,15 +12,20 @@ import Link from "next/link"
 interface AssessmentResultsDisplayProps {
   result: AssessmentResult
   timestamp?: string
-  source?: 'upload' | 'paste'
+  source?: "upload" | "paste"
 }
 
-export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' }: AssessmentResultsDisplayProps) {
+export function AssessmentResultsDisplay({ result, timestamp, source = "upload" }: AssessmentResultsDisplayProps) {
   const { overallScore, sectionResults, flaggedIssues, passedQuestions, summary } = result
 
-  const highIssues = flaggedIssues.filter(i => i.severity === 'high')
-  const mediumIssues = flaggedIssues.filter(i => i.severity === 'medium')
-  const lowIssues = flaggedIssues.filter(i => i.severity === 'low')
+  const highIssues = flaggedIssues.filter((i) => i.severity === "high")
+  const mediumIssues = flaggedIssues.filter((i) => i.severity === "medium")
+  const lowIssues = flaggedIssues.filter((i) => i.severity === "low")
+
+  // XSS PROTECTION: All user-generated content (userAnswer, question text) is rendered
+  // using React's built-in escaping. React automatically escapes all string values in JSX,
+  // preventing XSS attacks. Combined with input sanitization (lib/sanitize.ts), this provides
+  // defense-in-depth against malicious content.
 
   return (
     <div className="space-y-6">
@@ -42,7 +47,7 @@ export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' 
             </div>
             <Progress value={overallScore} className="h-3" />
           </div>
-          
+
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Summary</AlertTitle>
@@ -73,6 +78,7 @@ export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' 
                       <TableCell className="font-medium">
                         <span className="text-green-700">{question.questionNo}:</span> {question.question}
                       </TableCell>
+                      {/* XSS-safe: React automatically escapes userAnswer string */}
                       <TableCell className="text-gray-700">{question.userAnswer}</TableCell>
                       <TableCell className="text-green-600 flex items-center gap-1">
                         <CheckCircle2 className="h-4 w-4" />
@@ -116,6 +122,7 @@ export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' 
                           <TableCell className="font-medium">
                             <span className="text-red-700">{issue.questionNo}:</span> {issue.question}
                           </TableCell>
+                          {/* XSS-safe: React automatically escapes userAnswer string */}
                           <TableCell className="text-gray-700">
                             {issue.userAnswer || <span className="text-red-400 italic">No answer provided</span>}
                           </TableCell>
@@ -127,7 +134,7 @@ export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' 
                 </div>
               </div>
             )}
-            
+
             {mediumIssues.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-yellow-600">
@@ -149,6 +156,7 @@ export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' 
                           <TableCell className="font-medium">
                             <span className="text-yellow-700">{issue.questionNo}:</span> {issue.question}
                           </TableCell>
+                          {/* XSS-safe: React automatically escapes userAnswer string */}
                           <TableCell className="text-gray-700">
                             {issue.userAnswer || <span className="text-yellow-400 italic">No answer provided</span>}
                           </TableCell>
@@ -160,7 +168,7 @@ export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' 
                 </div>
               </div>
             )}
-            
+
             {lowIssues.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-blue-600">
@@ -182,6 +190,7 @@ export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' 
                           <TableCell className="font-medium">
                             <span className="text-blue-700">{issue.questionNo}:</span> {issue.question}
                           </TableCell>
+                          {/* XSS-safe: React automatically escapes userAnswer string */}
                           <TableCell className="text-gray-700">
                             {issue.userAnswer || <span className="text-blue-400 italic">No answer provided</span>}
                           </TableCell>
@@ -216,10 +225,12 @@ export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' 
                 <span className="text-lg font-bold">{Math.round(section.score)}%</span>
               </div>
               <Progress value={section.score} className="h-2" />
-              
+
               {section.issues.length > 0 && (
                 <div className="mt-2 text-sm text-red-600">
-                  <p className="font-medium">{section.issues.length} issue{section.issues.length > 1 ? 's' : ''} in this section</p>
+                  <p className="font-medium">
+                    {section.issues.length} issue{section.issues.length > 1 ? "s" : ""} in this section
+                  </p>
                 </div>
               )}
             </div>
@@ -227,7 +238,7 @@ export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' 
         </CardContent>
       </Card>
 
-      {source === 'upload' && (
+      {source === "upload" && (
         <Card>
           <CardHeader>
             <CardTitle>Next Steps</CardTitle>
@@ -239,27 +250,26 @@ export function AssessmentResultsDisplay({ result, timestamp, source = 'upload' 
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Continue Your Assessment</AlertTitle>
                 <AlertDescription>
-                  Review the flagged issues and complete any missing answers in your spreadsheet.
-                  Once updated, you can upload it again for a new assessment.
+                  Review the flagged issues and complete any missing answers in your spreadsheet. Once updated, you can
+                  upload it again for a new assessment.
                 </AlertDescription>
               </Alert>
             )}
-            
+
             {overallScore >= 90 && (
               <Alert className="border-green-300 bg-green-50">
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <AlertTitle className="text-green-900">Nearly Ready for Submission</AlertTitle>
                 <AlertDescription className="text-green-800">
-                  Your assessment is looking great! Address any remaining issues and you'll be ready to submit for Cyber Essentials certification.
+                  Your assessment is looking great! Address any remaining issues and you'll be ready to submit for Cyber
+                  Essentials certification.
                 </AlertDescription>
               </Alert>
             )}
-            
+
             <div className="flex gap-3">
               <Link href="/upload-assessment">
-                <Button variant="outline">
-                  Upload New Version
-                </Button>
+                <Button variant="outline">Upload New Version</Button>
               </Link>
               <Link href="/dashboard">
                 <Button>

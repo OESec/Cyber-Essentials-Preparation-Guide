@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { parseTextQuestions, generateAssessment } from "@/lib/spreadsheet-assessment"
 import { AssessmentResultsDisplay } from "./assessment-results-display"
+import { sanitizeTextInput } from "@/lib/sanitize"
 
 export function PasteQuestionsForm() {
   const [pastedText, setPastedText] = useState("")
@@ -26,7 +27,11 @@ export function PasteQuestionsForm() {
     setIsProcessing(true)
 
     try {
-      const questions = parseTextQuestions(pastedText)
+      console.log("[v0] Sanitizing pasted text input...")
+      const sanitizedText = sanitizeTextInput(pastedText, 100000)
+      console.log("[v0] Text sanitized, parsing questions...")
+
+      const questions = parseTextQuestions(sanitizedText)
 
       if (questions.length === 0) {
         toast({
@@ -38,6 +43,7 @@ export function PasteQuestionsForm() {
         return
       }
 
+      console.log("[v0] Parsed questions, generating assessment...")
       const result = generateAssessment(questions)
       setAssessmentResult(result)
 
@@ -45,6 +51,7 @@ export function PasteQuestionsForm() {
         title: "Assessment Complete",
         description: `Processed ${questions.length} question${questions.length > 1 ? "s" : ""}`,
       })
+      console.log("[v0] Assessment complete")
     } catch (error) {
       console.error("Error processing questions:", error)
       toast({

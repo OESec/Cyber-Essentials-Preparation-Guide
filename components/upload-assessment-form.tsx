@@ -16,6 +16,7 @@ import {
 } from "@/lib/spreadsheet-assessment"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { sanitizeSpreadsheetData } from "@/lib/sanitize"
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -106,14 +107,20 @@ export function UploadAssessmentForm() {
     setIsProcessing(true)
 
     try {
+      console.log("[v0] Reading spreadsheet file...")
       const arrayBuffer = await file.arrayBuffer()
       const XLSX = await import("xlsx")
       const workbook = XLSX.read(arrayBuffer, { type: "array" })
       const firstSheetName = workbook.SheetNames[0]
       const worksheet = workbook.Sheets[firstSheetName]
       const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" })
-      const detectedColumns = detectColumns(data as any[][])
-      setSpreadsheetData(data as any[][])
+
+      console.log("[v0] Sanitizing spreadsheet data...")
+      const sanitizedData = sanitizeSpreadsheetData(data as any[][])
+      console.log("[v0] Data sanitized, detecting columns...")
+
+      const detectedColumns = detectColumns(sanitizedData)
+      setSpreadsheetData(sanitizedData)
       setColumnInfo(detectedColumns)
 
       if (!detectedColumns.answerColumnDetected) {
@@ -128,7 +135,7 @@ export function UploadAssessmentForm() {
         return
       }
 
-      await completeProcessing(data as any[][])
+      await completeProcessing(sanitizedData)
     } catch (error) {
       console.error("[v0] Error processing spreadsheet:", error)
       toast({
@@ -144,6 +151,7 @@ export function UploadAssessmentForm() {
     setIsProcessing(true)
 
     try {
+      console.log("[v0] Parsing spreadsheet questions...")
       const questions = parseSpreadsheet(data, userAnswerColIndex)
 
       if (questions.length === 0) {
@@ -156,6 +164,7 @@ export function UploadAssessmentForm() {
         return
       }
 
+      console.log("[v0] Generating assessment from questions...")
       const assessment = generateAssessment(questions)
       saveAssessmentResult(assessment)
 
@@ -164,6 +173,7 @@ export function UploadAssessmentForm() {
         description: `Processed ${questions.length} questions from your spreadsheet`,
       })
 
+      console.log("[v0] Assessment saved, redirecting to results...")
       router.push("/upload-assessment/results")
     } catch (error) {
       console.error("[v0] Error completing assessment:", error)
