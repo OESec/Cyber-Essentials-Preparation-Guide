@@ -17,8 +17,10 @@ import {
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { sanitizeSpreadsheetData } from "@/lib/sanitize"
+import { logAuditEvent } from "@/lib/audit-log"
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_QUESTIONS = 500
 
 export function UploadAssessmentForm() {
   const [file, setFile] = useState<File | null>(null)
@@ -55,6 +57,14 @@ export function UploadAssessmentForm() {
     if (selectedFile.size > MAX_FILE_SIZE) {
       const fileSizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2)
       const maxSizeMB = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(0)
+      logAuditEvent({
+        action: "upload_spreadsheet",
+        questionCount: 0,
+        status: "error",
+        errorMessage: `File too large: ${fileSizeMB}MB (max ${maxSizeMB}MB)`,
+        fileSize: selectedFile.size,
+        fileName: selectedFile.name,
+      })
       toast({
         title: "File too large",
         description: `File size is ${fileSizeMB}MB. Maximum allowed size is ${maxSizeMB}MB.`,
@@ -75,6 +85,14 @@ export function UploadAssessmentForm() {
       !selectedFile.name.endsWith(".xls") &&
       !selectedFile.name.endsWith(".csv")
     ) {
+      logAuditEvent({
+        action: "upload_spreadsheet",
+        questionCount: 0,
+        status: "error",
+        errorMessage: "Invalid file type",
+        fileSize: selectedFile.size,
+        fileName: selectedFile.name,
+      })
       toast({
         title: "Invalid file type",
         description: "Please upload a .xlsx, .xls, or .csv file",
@@ -138,6 +156,14 @@ export function UploadAssessmentForm() {
       await completeProcessing(sanitizedData)
     } catch (error) {
       console.error("[v0] Error processing spreadsheet:", error)
+      logAuditEvent({
+        action: "upload_spreadsheet",
+        questionCount: 0,
+        status: "error",
+        errorMessage: error instanceof Error ? error.message : "Failed to process spreadsheet",
+        fileSize: file?.size,
+        fileName: file?.name,
+      })
       toast({
         title: "Processing error",
         description: "Failed to process the spreadsheet. Please ensure it's in the correct format.",
@@ -151,10 +177,17 @@ export function UploadAssessmentForm() {
     setIsProcessing(true)
 
     try {
-      console.log("[v0] Parsing spreadsheet questions...")
       const questions = parseSpreadsheet(data, userAnswerColIndex)
 
       if (questions.length === 0) {
+        logAuditEvent({
+          action: "upload_spreadsheet",
+          questionCount: 0,
+          status: "error",
+          errorMessage: "No valid questions found in spreadsheet",
+          fileSize: file?.size,
+          fileName: file?.name,
+        })
         toast({
           title: "No questions found",
           description: `Checked ${data.length} rows. Ensure question numbers follow format like A1.1, A2.5, etc.`,
@@ -164,19 +197,48 @@ export function UploadAssessmentForm() {
         return
       }
 
-      console.log("[v0] Generating assessment from questions...")
+      if (questions.length > MAX_QUESTIONS) {
+        logAuditEvent({
+          action: "upload_spreadsheet",
+          questionCount: questions.length,
+          status: "error",
+          errorMessage: `Exceeded maximum question limit (${MAX_QUESTIONS})`,
+          fileSize: file?.size,
+          fileName: file?.name,
+        })
+        toast({
+          title: "Too many questions",
+          description: `Found ${questions.length} questions. Maximum allowed is ${MAX_QUESTIONS}. Please split your spreadsheet into smaller files.`,
+          variant: "destructive",
+        })
+        setIsProcessing(false)
+        return
+      }
+
       const assessment = generateAssessment(questions)
       saveAssessmentResult(assessment)
-
+      logAuditEvent({
+        action: "upload_spreadsheet",
+        questionCount: questions.length,
+        status: "success",
+        fileSize: file?.size,
+        fileName: file?.name,
+      })
       toast({
         title: "Assessment complete!",
         description: `Processed ${questions.length} questions from your spreadsheet`,
       })
-
-      console.log("[v0] Assessment saved, redirecting to results...")
       router.push("/upload-assessment/results")
     } catch (error) {
       console.error("[v0] Error completing assessment:", error)
+      logAuditEvent({
+        action: "upload_spreadsheet",
+        questionCount: 0,
+        status: "error",
+        errorMessage: error instanceof Error ? error.message : "Failed to complete assessment",
+        fileSize: file?.size,
+        fileName: file?.name,
+      })
       toast({
         title: "Processing error",
         description: "Failed to complete the assessment",
@@ -305,6 +367,7 @@ export function UploadAssessmentForm() {
                 <li>• Excel files (.xlsx, .xls)</li>
                 <li>• CSV files (.csv)</li>
                 <li>• Maximum file size: 5MB</li>
+                <li>• Maximum questions: 500 per file</li>
                 <li>• Must contain question numbers (e.g., A1.1, A2.5)</li>
                 <li>• Must have your answers filled in</li>
                 <li>• Tip: Name your answer column "Answer", "My Answer", or "Response" for automatic detection</li>

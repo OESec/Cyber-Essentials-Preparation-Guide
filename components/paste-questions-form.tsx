@@ -7,6 +7,9 @@ import { useToast } from "@/components/ui/use-toast"
 import { parseTextQuestions, generateAssessment } from "@/lib/spreadsheet-assessment"
 import { AssessmentResultsDisplay } from "./assessment-results-display"
 import { sanitizeTextInput } from "@/lib/sanitize"
+import { logAuditEvent } from "@/lib/audit-log"
+
+const MAX_QUESTIONS = 500
 
 export function PasteQuestionsForm() {
   const [pastedText, setPastedText] = useState("")
@@ -34,9 +37,33 @@ export function PasteQuestionsForm() {
       const questions = parseTextQuestions(sanitizedText)
 
       if (questions.length === 0) {
+        logAuditEvent({
+          action: "paste_questions",
+          questionCount: 0,
+          status: "error",
+          errorMessage: "No questions found in pasted text",
+        })
+
         toast({
           title: "No questions found",
           description: "Could not parse any valid questions. Please check the format and try again.",
+          variant: "destructive",
+        })
+        setIsProcessing(false)
+        return
+      }
+
+      if (questions.length > MAX_QUESTIONS) {
+        logAuditEvent({
+          action: "paste_questions",
+          questionCount: questions.length,
+          status: "error",
+          errorMessage: `Exceeded maximum question limit (${MAX_QUESTIONS})`,
+        })
+
+        toast({
+          title: "Too many questions",
+          description: `Found ${questions.length} questions. Maximum allowed is ${MAX_QUESTIONS}. Please split into smaller batches.`,
           variant: "destructive",
         })
         setIsProcessing(false)
@@ -47,6 +74,12 @@ export function PasteQuestionsForm() {
       const result = generateAssessment(questions)
       setAssessmentResult(result)
 
+      logAuditEvent({
+        action: "paste_questions",
+        questionCount: questions.length,
+        status: "success",
+      })
+
       toast({
         title: "Assessment Complete",
         description: `Processed ${questions.length} question${questions.length > 1 ? "s" : ""}`,
@@ -54,6 +87,14 @@ export function PasteQuestionsForm() {
       console.log("[v0] Assessment complete")
     } catch (error) {
       console.error("Error processing questions:", error)
+
+      logAuditEvent({
+        action: "paste_questions",
+        questionCount: 0,
+        status: "error",
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+      })
+
       toast({
         title: "Processing Error",
         description: "An error occurred while processing your questions. Please try again.",
